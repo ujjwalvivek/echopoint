@@ -162,7 +162,7 @@
     background: transparent;
     border: none;
     color: var(--text);
-    font-family: 'Monaspace Neon', monospace;
+    font-family: "Monaspace Neon", monospace;
     font-size: 0.8rem;
     outline: none;
     text-transform: lowercase;
@@ -196,9 +196,9 @@
 }
 
 .btn.primary {
-    background: var(--accent-blue);
+    background: var(--accent-mauve);
     color: var(--bg-base);
-    border-color: var(--accent-blue);
+    border-color: var(--accent-mauve);
 }
 
 .btn.primary:hover {
@@ -253,7 +253,7 @@
     .pgTitle small {
         display: block;
         font-weight: 400;
-        font-size: 0.70rem;
+        font-size: 0.7rem;
         color: var(--text-muted);
         margin-top: 0.1rem;
     }

@@ -1,63 +1,15 @@
 @font-face {
-    font-family: 'Monaspace Neon';
-    src: url('https://cdn.ujjwalvivek.com/fonts/Monaspace/Neon/Regular.woff2') format('woff2');
-    font-weight: 400;
+    font-family: "Monaspace Neon";
+    src: url("https://cdn.ujjwalvivek.com/fonts/Monaspace/Neon/Var.woff2")
+        format("woff2");
     font-style: normal;
     font-display: block;
 }
 
 @font-face {
-    font-family: 'Monaspace Neon';
-    src: url('https://cdn.ujjwalvivek.com/fonts/Monaspace/Neon/Bold.woff2') format('woff2');
-    font-weight: 700;
-    font-style: normal;
-    font-display: block;
-}
-
-@font-face {
-    font-family: 'Monaspace Neon';
-    src: url('https://cdn.ujjwalvivek.com/fonts/Monaspace/Neon/SemiBold.woff2') format('woff2');
-    font-weight: 600;
-    font-style: normal;
-    font-display: block;
-}
-
-@font-face {
-    font-family: 'Monaspace Neon';
-    src: url('https://cdn.ujjwalvivek.com/fonts/Monaspace/Neon/ExtraBold.woff2') format('woff2');
-    font-weight: 800;
-    font-style: normal;
-    font-display: block;
-}
-
-@font-face {
-    font-family: 'Monaspace Krypton';
-    src: url('https://cdn.ujjwalvivek.com/fonts/Monaspace/Krypton/Regular.woff2') format('woff2');
-    font-weight: 400;
-    font-style: normal;
-    font-display: block;
-}
-
-@font-face {
-    font-family: 'Monaspace Krypton';
-    src: url('https://cdn.ujjwalvivek.com/fonts/Monaspace/Krypton/Bold.woff2') format('woff2');
-    font-weight: 700;
-    font-style: normal;
-    font-display: block;
-}
-
-@font-face {
-    font-family: 'Monaspace Krypton';
-    src: url('https://cdn.ujjwalvivek.com/fonts/Monaspace/Krypton/SemiBold.woff2') format('woff2');
-    font-weight: 600;
-    font-style: normal;
-    font-display: block;
-}
-
-@font-face {
-    font-family: 'Monaspace Krypton';
-    src: url('https://cdn.ujjwalvivek.com/fonts/Monaspace/Krypton/ExtraBold.woff2') format('woff2');
-    font-weight: 800;
+    font-family: "Monaspace Krypton";
+    src: url("https://cdn.ujjwalvivek.com/fonts/Monaspace/Krypton/Var.woff2")
+        format("woff2");
     font-style: normal;
     font-display: block;
 }
@@ -75,7 +27,7 @@ html {
 }
 
 body {
-    font-family: 'Monaspace Neon', 'Monaspace Krypton', monospace;
+    font-family: "Monaspace Neon", "Monaspace Krypton", monospace;
     background: var(--bg-base);
     color: var(--text);
     line-height: 1.5;
@@ -94,7 +46,7 @@ a:hover {
 
 code,
 pre {
-    font-family: 'Monaspace Krypton', monospace;
+    font-family: "Monaspace Krypton", monospace;
     font-size: 0.8em;
 }
 
@@ -290,6 +242,7 @@ pre {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    position: relative;
     padding: 0 1.5rem;
     height: 2.5rem;
     background: var(--bg-mantle);
@@ -307,15 +260,39 @@ pre {
     font-size: 1.5rem;
     font-weight: 700;
     letter-spacing: -0.02em;
-    font-family: 'Monaspace Krypton';
+    font-family: "Monaspace Krypton";
     cursor: default;
     letter-spacing: 0.1px;
     text-transform: uppercase;
 }
 
+.topbarActions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.topbarActions img {
+    transform: translateY(-1px);
+}
+
 .topbarRight {
     display: flex;
     align-items: center;
+    gap: 1rem;
+}
+
+.githubBadge {
+    display: flex;
+    align-items: center;
+    height: 20px;
+    line-height: 0;
+}
+
+.githubBadge img {
+    display: block;
+    height: 20px;
+    max-width: 160px;
 }
 
 .themeSquares {
@@ -343,7 +320,9 @@ pre {
     border-radius: 2px;
     cursor: pointer;
     border: 1.5px dashed transparent;
-    transition: transform 0.1s, border-color 0.15s;
+    transition:
+        transform 0.1s,
+        border-color 0.15s;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -434,7 +413,7 @@ pre {
 .clickerCount {
     font-size: 1.5rem;
     font-weight: 800;
-    font-family: 'Monaspace Krypton', monospace;
+    font-family: "Monaspace Krypton", monospace;
     color: var(--accent-mauve);
     margin-bottom: 0.75rem;
 }
@@ -489,7 +468,6 @@ pre {
 }
 
 @keyframes pulse {
-
     0%,
     100% {
         opacity: 1;
@@ -503,6 +481,10 @@ pre {
 @media (max-width: 768px) {
     .hamburgerBtn {
         display: block;
+    }
+
+    .topbarActions {
+        gap: 0.75rem;
     }
 
     .topbarRight {

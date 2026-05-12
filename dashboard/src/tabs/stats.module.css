@@ -1,7 +1,7 @@
 .statsContainer {
-    padding: 2.5rem 3rem 4rem;
-    max-width: 1400px;
-    margin: 0 auto;
+    padding: 0;
+    max-width: 1600px;
+    margin: auto;
     width: 100%;
 }
 
@@ -26,6 +26,7 @@
 
 .systemBar {
     display: flex;
+    flex-wrap: wrap;
     gap: 1.5rem;
     background: var(--surface0);
     border: 1px solid var(--border);
@@ -44,7 +45,7 @@
 }
 
 .sysValue {
-    font-family: 'Monaspace Neon', monospace;
+    font-family: "Monaspace Neon", monospace;
     font-weight: 400;
     color: var(--text);
 }
@@ -68,9 +69,10 @@
 
 .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
     gap: 1rem;
     margin-bottom: 1rem;
+    align-items: start;
 }
 
 .fullWidthGrid {
@@ -83,6 +85,7 @@
     border-radius: var(--radius);
     display: flex;
     flex-direction: column;
+    min-width: 0;
 }
 
 .cardHeader {
@@ -98,7 +101,7 @@
     font-size: 0.85rem;
     font-weight: 600;
     color: var(--text);
-    font-family: 'Monaspace Neon', monospace;
+    font-family: "Monaspace Neon", monospace;
 }
 
 .cardSub {
@@ -114,6 +117,7 @@
 .row {
     display: flex;
     justify-content: space-between;
+    gap: 1rem;
     padding: 0.4rem 0;
     border-bottom: 1px solid var(--surface0);
     font-size: 0.85rem;
@@ -129,9 +133,11 @@
 
 .value {
     color: var(--text);
-    font-family: 'Monaspace Krypton', monospace;
+    font-family: "Monaspace Krypton", monospace;
     font-size: 0.8rem;
     text-align: right;
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .value.green {
@@ -166,7 +172,9 @@
     font-weight: 600;
     user-select: none;
     text-align: center;
-    transition: color 0.2s, background 0.2s;
+    transition:
+        color 0.2s,
+        background 0.2s;
 }
 
 .rawToggle:hover {
@@ -179,7 +187,7 @@
     padding: 1rem 1.25rem;
     background: var(--bg-base);
     border-top: 1px solid var(--border);
-    font-family: 'Monaspace Krypton', monospace;
+    font-family: "Monaspace Krypton", monospace;
     font-size: 0.75rem;
     color: var(--text-sub);
     max-height: 250px;
@@ -221,7 +229,7 @@
     display: flex;
     justify-content: space-between;
     color: var(--text-muted);
-    font-family: 'Monaspace Krypton', monospace;
+    font-family: "Monaspace Krypton", monospace;
     font-size: 0.7rem;
 }
 

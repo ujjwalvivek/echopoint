@@ -25,6 +25,7 @@
 .nav {
     display: flex;
     flex-direction: column;
+    cursor: pointer;
 }
 
 .navItem {
@@ -56,9 +57,15 @@
 
 .docsContent {
     width: 100%;
-    max-width: 1000px;
+    max-width: 960px;
     margin: 0 auto;
     padding: 2rem 3rem;
+}
+
+.statsLayout .docsContent {
+    max-width: none;
+    margin: 0;
+    padding: 1.25rem 1.5rem 2rem;
 }
 
 .section {
@@ -68,6 +75,59 @@
 
 .section.active {
     display: block;
+}
+
+.docPageIntro {
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.docPageIntro h2 {
+    margin-top: 0.8rem;
+}
+
+.docToc {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1.25rem;
+}
+
+.docTocButton {
+    background: var(--surface0);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-sub);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 0.45rem 0.65rem;
+}
+
+.docTocButton:hover {
+    background: var(--surface1);
+    color: var(--text);
+}
+
+.docSection {
+    scroll-margin-top: 1rem;
+}
+
+.sectionLabel {
+    color: var(--text-muted);
+    font-family: "Monaspace Krypton", monospace;
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    margin-bottom: 0.3rem;
+}
+
+.sectionDivider {
+    border: none;
+    border-top: 2px dashed var(--border);
+    margin: 2.5rem 0;
 }
 
 @keyframes fadeIn {
@@ -125,7 +185,7 @@
     border-radius: var(--radius);
     padding: 0.3rem 1rem;
     overflow-x: auto;
-    font-family: 'Monaspace Krypton', monospace;
+    font-family: "Monaspace Krypton", monospace;
     font-size: 0.8rem;
     color: var(--text);
     margin: 1rem 0;
@@ -171,7 +231,7 @@
 }
 
 .path {
-    font-family: 'Monaspace Krypton', monospace;
+    font-family: "Monaspace Krypton", monospace;
     font-size: 0.9rem;
     color: var(--accent-peach);
     font-weight: 600;
@@ -244,7 +304,7 @@ td:nth-child(2) {
     align-items: center;
     gap: 0.75rem;
     font-size: 0.8rem;
-    font-family: 'Monaspace Neon', monospace;
+    font-family: "Monaspace Neon", monospace;
     color: var(--text-sub);
 }
 

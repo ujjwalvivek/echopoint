@@ -3,8 +3,39 @@ import epStyles from './docs.module.css'
 
 const API_BASE = import.meta.env.VITE_ECHOPOINT_URL || 'https://echopoint.ujjwalvivek.com';
 
+const FALLBACK_CONFIG = {
+    github: {
+        owner: 'ujjwalvivek',
+        repos: [
+            { alias: 'portfolio', owner: 'ujjwalvivek', name: 'portfolio', tracked: true },
+            { alias: 'journey', owner: 'ujjwalvivek', name: 'journey', tracked: true },
+            { alias: 'synclippy', owner: 'ujjwalvivek', name: 'synclippy', tracked: true },
+        ],
+    },
+    npm: [
+        { alias: 'journey-engine', package: '@ujjwalvivek/journey-engine' },
+        { alias: 'dino-blink', package: '@ujjwalvivek/dino-blink' },
+    ],
+    crates: [
+        { alias: 'journey-engine', crate: 'journey-engine' },
+    ],
+    docker: [
+        { alias: 'synclippy', namespace: 'ujjwalvivek', repository: 'synclippy' },
+    ],
+};
+
+async function fetchConfig() {
+    try {
+        const res = await fetch(`${API_BASE}/v1/config`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return await res.json();
+    } catch {
+        return FALLBACK_CONFIG;
+    }
+}
+
 function relTime(dateStr) {
-    if (!dateStr) return '—';
+    if (!dateStr) return ':';
     const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
     if (diff < 60) return `${diff}s ago`;
     if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
@@ -49,20 +80,34 @@ function makeRow(label, value, colorClass = '') {
     `;
 }
 
+function pendingCard(title, rows = '') {
+    return renderCard(title, 'pending',
+        makeRow('Status', 'No cached data yet', 'red') +
+        rows
+    );
+}
+
 export async function renderStats(container) {
     container.innerHTML = `<div class="${styles.statsContainer}">
         <div class="loading">Fetching data from Echopoint Worker...</div>
     </div>`;
 
     try {
-        const res = await fetch(`${API_BASE}/v1/store`);
+        const [res, config] = await Promise.all([
+            fetch(`${API_BASE}/v1/store`),
+            fetchConfig(),
+        ]);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const store = await res.json();
 
         const lastRun = store['_meta:last_run'] || { success: 0, failed: 0, total: 0 };
         const lastUpdated = store['_meta:last_updated'];
+        const trackedRepos = (config.github?.repos || [])
+            .filter(repo => repo.tracked !== false);
+        const trackedRepoAliases = trackedRepos.map(repo => repo.alias || repo.name);
+        const trackedReposLabel = trackedRepoAliases.join(', ') || 'none';
 
-        const userSummary = store['github:ujjwalvivek:summary'];
+        const userSummary = store[`github:${config.github?.owner || FALLBACK_CONFIG.github.owner}:summary`];
         let userSummaryHtml = '';
         if (userSummary && userSummary.data && userSummary.data.user) {
             const u = userSummary.data.user;
@@ -83,14 +128,19 @@ export async function renderStats(container) {
             `;
         }
 
-        const reposToRender = ['portfolio', 'journey', 'synclippy'];
-        const repoHtml = reposToRender.map(repo => {
-            const data = store[`github:${repo}:repo`];
-            const rel = store[`github:${repo}:release`];
-            const commits = store[`github:${repo}:commits`] || [];
-            const deps = store[`github:${repo}:deployments`] || [];
-            const tags = store[`github:${repo}:tags`] || [];
-            if (!data) return '';
+        const repoHtml = trackedRepos.map(repo => {
+            const alias = repo.alias || repo.name;
+            const data = store[`github:${alias}:repo`];
+            const rel = store[`github:${alias}:release`];
+            const commits = store[`github:${alias}:commits`] || [];
+            const deps = store[`github:${alias}:deployments`] || [];
+            const tags = store[`github:${alias}:tags`] || [];
+            if (!data) {
+                return pendingCard(`github:${alias}`,
+                    makeRow('Repo', `${repo.owner}/${repo.name}`) +
+                    makeRow('Tracked', 'yes', 'blue')
+                );
+            }
 
             let content = makeRow('Stars', data.stargazers_count, 'peach') +
                 makeRow('Forks', data.forks_count) +
@@ -113,13 +163,15 @@ export async function renderStats(container) {
                            `).join('')}
                            </ul>`;
 
-            return renderCard(`github:${repo}`, relTime(data.pushed_at), content, data);
+            return renderCard(`github:${alias}`, relTime(data.pushed_at), content, data);
         }).join('');
 
-        const packages = ['journey-engine', 'dino-blink'];
-        const npmHtml = packages.map(pkg => {
-            const data = store[`npm:${pkg}`];
-            if (!data) return '';
+        const npmHtml = (config.npm || []).map(pkg => {
+            const alias = pkg.alias || pkg.package;
+            const data = store[`npm:${alias}`];
+            if (!data) {
+                return pendingCard(`npm:${alias}`, makeRow('Package', pkg.package));
+            }
             const sizeMb = data.dist?.unpackedSize ? (data.dist.unpackedSize / 1024 / 1024).toFixed(2) + ' MB' : 'N/A';
             const content = makeRow('Version', data.version, 'green') +
                 makeRow('Files', data.dist?.fileCount || 'N/A', 'blue') +
@@ -127,11 +179,12 @@ export async function renderStats(container) {
                 makeRow('SHA', truncate(data.dist?.shasum || data.gitHead, 12), 'peach') +
                 makeRow('Keywords', truncate((data.keywords || []).join(', '), 25)) +
                 makeRow('Description', truncate(data.description, 35));
-            return renderCard(`npm:${pkg}`, 'latest', content, data);
+            return renderCard(`npm:${alias}`, 'latest', content, data);
         }).join('');
 
-        const crateData = store['crates:journey-engine'];
-        const journeyLangs = store['github:journey:langs'] || {};
+        const langRepo = trackedRepos.find(repo => repo.alias === 'journey') || trackedRepos[0];
+        const langRepoAlias = langRepo?.alias || langRepo?.name;
+        const journeyLangs = langRepoAlias ? store[`github:${langRepoAlias}:langs`] || {} : {};
         const totalBytes = Object.values(journeyLangs).reduce((a, b) => a + b, 0);
         let langsHtml = '';
         if (totalBytes > 0) {
@@ -140,27 +193,40 @@ export async function renderStats(container) {
             langsHtml += makeRow('Total Bytes', totalBytes.toLocaleString(), 'green');
         }
 
-        const crateHtml = crateData && crateData.crate ? renderCard('crates:journey-engine', 'latest',
-            makeRow('Version', crateData.crate.max_version, 'peach') +
-            makeRow('Downloads', crateData.crate.downloads?.toLocaleString(), 'purple') +
-            langsHtml,
-            crateData
-        ) : '';
+        const crateHtml = (config.crates || []).map((crate, idx) => {
+            const alias = crate.alias || crate.crate;
+            const crateData = store[`crates:${alias}`];
+            if (!crateData || !crateData.crate) {
+                return pendingCard(`crates:${alias}`, makeRow('Crate', crate.crate));
+            }
+            return renderCard(`crates:${alias}`, 'latest',
+                makeRow('Version', crateData.crate.max_version, 'peach') +
+                makeRow('Downloads', crateData.crate.downloads?.toLocaleString(), 'purple') +
+                (idx === 0 ? langsHtml : ''),
+                crateData
+            );
+        }).join('');
 
-        const dockerData = store['docker:synclippy:tags'];
-        const dockerHtml = dockerData && dockerData.results ? renderCard('docker:synclippy', 'tags',
-            `<ul class="${styles.list}">
-             ${dockerData.results.slice(0, 5).map(t => `
-                 <li class="${styles.listItem}">
-                     <div class="${styles.listMeta}">
-                         <span style="color:var(--text);font-size:0.8rem">${t.name}</span>
-                         <span>${relTime(t.last_updated)}</span>
-                     </div>
-                 </li>
-             `).join('')}
-             </ul>`,
-            dockerData
-        ) : '';
+        const dockerHtml = (config.docker || []).map(image => {
+            const alias = image.alias || image.repository;
+            const dockerData = store[`docker:${alias}:tags`];
+            if (!dockerData || !dockerData.results) {
+                return pendingCard(`docker:${alias}`, makeRow('Image', `${image.namespace}/${image.repository}`));
+            }
+            return renderCard(`docker:${alias}`, 'tags',
+                `<ul class="${styles.list}">
+                 ${dockerData.results.slice(0, 5).map(t => `
+                     <li class="${styles.listItem}">
+                         <div class="${styles.listMeta}">
+                             <span style="color:var(--text);font-size:0.8rem">${t.name}</span>
+                             <span>${relTime(t.last_updated)}</span>
+                         </div>
+                     </li>
+                 `).join('')}
+                 </ul>`,
+                dockerData
+            );
+        }).join('');
 
         container.innerHTML = `
             <div class="${styles.statsContainer}">
@@ -171,7 +237,7 @@ export async function renderStats(container) {
                     <span class="${epStyles.path}">User Aggregated Data</span>
                 </div>
                 <p>ALL data from the Echopoint KV store.</p>
-                <p style="margin-bottom:1rem;color:var(--text-muted);font-size:0.8rem;"><strong>Tracked Repos:</strong> portfolio, journey, synclippy</p>
+                <p style="margin-bottom:1rem;color:var(--text-muted);font-size:0.8rem;"><strong>Tracked Repos:</strong> ${trackedReposLabel}</p>
                 <div class="${styles.systemBar}">
                     <div class="${styles.sysItem}">
                         <div class="${styles.dot} ${lastRun.failed > 0 ? styles.error : ''}"></div>

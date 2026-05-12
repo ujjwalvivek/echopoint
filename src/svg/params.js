@@ -20,9 +20,6 @@ export function clampInt(val, min, max, fallback) {
   return Math.max(min, Math.min(max, n));
 }
 
-//? Repo whitelist
-export const ALLOWED_REPOS = ['portfolio', 'journey', 'synclippy'];
-
 import { FONTS } from './fonts.js';
 
 export const FONT_FACE_MONO = `
@@ -131,7 +128,7 @@ export function parseParams(url) {
     //? Shared color params (all SVGs)
     accentColor: validateHexColor(p.get('accentColor')),
     lineColor: validateHexColor(p.get('lineColor')),
-    repo: ALLOWED_REPOS.includes(p.get('repo')) ? p.get('repo') : null,
+    repo: p.get('repo') || null,
 
     //? External package params (for badge endpoints)
     package: p.get('package') || null,

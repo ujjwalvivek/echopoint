@@ -1,0 +1,11 @@
+{
+    "file_scan_exclusions": [
+        "**/.git",
+        "**/build",
+        "**/dist",
+        "**/node_modules",
+        "**/*-lock.json",
+        "**/.wrangler",
+        "**/target"
+    ]
+}

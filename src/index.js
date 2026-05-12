@@ -4,8 +4,9 @@ import { generateStreakBadge } from './svg/streak.js';
 import { generateLangsBar } from './svg/langs.js';
 import { generateCommitsList } from './svg/commits.js';
 import { generateReleasesList } from './svg/releases.js';
-import { parseParams, ALLOWED_REPOS, ICONS } from './svg/params.js';
+import { parseParams, ICONS } from './svg/params.js';
 import { SOURCES, githubHeaders } from './sources.js';
+import { CONFIG, getTrackedGitHubRepos, publicConfig, resolveGitHubRepo } from './config.js';
 export { ClickerDO } from './clicker.js';
 
 
@@ -29,6 +30,50 @@ const CORS = {
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
 };
+
+const SUMMARY_KEY = `github:${CONFIG.github.owner}:summary`;
+const REFRESH_FETCH_BUDGET = 45;
+const DEFAULT_BADGE_LOGOS = {
+    contributions: 'github',
+    commits: 'github',
+    prs: 'github',
+    issues: 'github',
+    stars: 'github',
+    release: 'github',
+    npm: 'npm',
+    cargo: 'rust',
+    docker: 'docker',
+    ghcr: 'github',
+    updated: 'github',
+    docs: 'docs',
+    custom: 'code',
+    health: 'github',
+};
+
+function trackedRepos() {
+    return getTrackedGitHubRepos(CONFIG);
+}
+
+function resolveRequiredRepo(rawRepo) {
+    return resolveGitHubRepo(rawRepo, CONFIG);
+}
+
+function resolveRepoList(rawRepo) {
+    if (!rawRepo) return trackedRepos();
+    const repo = resolveGitHubRepo(rawRepo, CONFIG);
+    return repo ? [repo] : trackedRepos();
+}
+
+function sourceCost(source) {
+    const n = Number(source.cost || 1);
+    return Number.isFinite(n) && n > 0 ? n : 1;
+}
+
+function withDefaultBadgeLogo(opts, badgeRoute) {
+    const logo = DEFAULT_BADGE_LOGOS[badgeRoute];
+    if (!logo || opts.logo) return opts;
+    return { ...opts, logo };
+}
 
 function jsonResponse(data, status = 200) {
     return new Response(JSON.stringify(data), {
@@ -122,6 +167,10 @@ async function handleFetch(request, env) {
         return handleHealth(env);
     }
 
+    if (path === '/v1/config') {
+        return jsonResponse(publicConfig(CONFIG));
+    }
+
     if (path === '/v1/store') {
         return handleGetAll(env);
     }
@@ -134,14 +183,14 @@ async function handleFetch(request, env) {
                 return jsonResponse({ error: 'Unauthorized' }, 401);
             }
         }
-        await handleScheduled(env);
-        return jsonResponse({ ok: true, msg: 'Refresh triggered' });
+        const result = await handleScheduled(env);
+        return jsonResponse({ ok: true, msg: 'Refresh triggered', ...result });
     }
 
     if (path === '/v1/langs') {
         const agg = {};
-        for (const repo of ALLOWED_REPOS) {
-            const r = await cachedKvGet(env.echopoint_kv, `github:${repo}:langs`, 'json');
+        for (const repo of trackedRepos()) {
+            const r = await cachedKvGet(env.echopoint_kv, `github:${repo.alias}:langs`, 'json');
             if (!r || r.message) continue;
             for (const [l, b] of Object.entries(r)) {
                 agg[l] = (agg[l] || 0) + b;
@@ -158,31 +207,33 @@ async function handleFetch(request, env) {
     if (path.startsWith('/svg/')) {
         const route = path.slice('/svg/'.length);
         const opts = parseParams(url);
+        const badgeRoute = route.startsWith('badges/') ? route.slice('badges/'.length) : null;
+        const badgeOpts = withDefaultBadgeLogo(opts, badgeRoute);
         const kv = env.echopoint_kv;
 
         if (route === 'badges/contributions') {
-            const summary = await cachedKvGet(kv, 'github:ujjwalvivek:summary', 'json');
+            const summary = await cachedKvGet(kv, SUMMARY_KEY, 'json');
             const user = summary?.data?.user;
             let total = 0;
             if (user) {
                 const currentYear = new Date().getFullYear();
-                for (let year = 2016; year <= currentYear; year++) {
+                for (let year = CONFIG.github.startYear; year <= currentYear; year++) {
                     const y = user[`y${year}`];
                     if (y) {
                         total += (y.contributionCalendar?.totalContributions || 0) + (y.restrictedContributionsCount || 0);
                     }
                 }
             }
-            return svgResponse(generateBadge('contributions', total, opts, '#4c1'));
+            return svgResponse(generateBadge('contributions', total, badgeOpts, '#4c1'));
         }
 
         if (route === 'badges/commits') {
-            const summary = await cachedKvGet(kv, 'github:ujjwalvivek:summary', 'json');
+            const summary = await cachedKvGet(kv, SUMMARY_KEY, 'json');
             const user = summary?.data?.user;
             let total = 0;
             if (user) {
                 const currentYear = new Date().getFullYear();
-                for (let year = 2016; year <= currentYear; year++) {
+                for (let year = CONFIG.github.startYear; year <= currentYear; year++) {
                     const y = user[`y${year}`];
                     if (y && y.totalCommitContributions) {
                         total += y.totalCommitContributions;
@@ -190,115 +241,119 @@ async function handleFetch(request, env) {
                 }
                 if (total === 0) total = user.contributionsCollection?.totalCommitContributions || 0;
             }
-            return svgResponse(generateBadge('total commits', total, opts, '#4c1'));
+            return svgResponse(generateBadge('total commits', total, badgeOpts, '#4c1'));
         }
 
         if (route === 'badges/prs') {
-            const summary = await cachedKvGet(kv, 'github:ujjwalvivek:summary', 'json');
+            const summary = await cachedKvGet(kv, SUMMARY_KEY, 'json');
             const total = summary?.data?.user?.contributionsCollection?.totalPullRequestContributions || 0;
-            return svgResponse(generateBadge('pull requests', total, opts, '#007ec6'));
+            return svgResponse(generateBadge('pull requests', total, badgeOpts, '#007ec6'));
         }
 
         if (route === 'badges/issues') {
-            const summary = await cachedKvGet(kv, 'github:ujjwalvivek:summary', 'json');
+            const summary = await cachedKvGet(kv, SUMMARY_KEY, 'json');
             const total = summary?.data?.user?.contributionsCollection?.totalRepositoriesWithContributedIssues || 0;
-            return svgResponse(generateBadge('issues', total, opts, '#e24329'));
+            return svgResponse(generateBadge('issues', total, badgeOpts, '#e24329'));
         }
 
         if (route === 'badges/stars') {
-            if (!opts.repo) return svgResponse(generateBadge('stars', '?repo= required', opts, '#494949'));
-            const repo = await cachedKvGet(kv, `github:${opts.repo}:repo`, 'json');
-            const count = repo?.stargazers_count ?? 0;
-            return svgResponse(generateBadge('stars', `${count}`, opts, '#494949'));
+            const repo = resolveRequiredRepo(opts.repo);
+            if (!repo) return svgResponse(generateBadge('stars', '?repo= required', badgeOpts, '#494949'));
+            const data = await cachedKvGet(kv, `github:${repo.alias}:repo`, 'json');
+            const count = data?.stargazers_count ?? 0;
+            return svgResponse(generateBadge('stars', `${count}`, badgeOpts, '#494949'));
         }
 
         if (route === 'badges/release') {
-            if (!opts.repo) return svgResponse(generateBadge('release', '?repo= required', opts, '#a855f7'));
-            const rel = await cachedKvGet(kv, `github:${opts.repo}:release`, 'json');
-            const tag = rel?.tag_name || '—';
-            return svgResponse(generateBadge('release', tag, opts, '#a855f7'));
+            const repo = resolveRequiredRepo(opts.repo);
+            if (!repo) return svgResponse(generateBadge('release', '?repo= required', badgeOpts, '#a855f7'));
+            const rel = await cachedKvGet(kv, `github:${repo.alias}:release`, 'json');
+            const tag = rel?.tag_name || ':';
+            return svgResponse(generateBadge('release', tag, badgeOpts, '#a855f7'));
         }
 
         if (route === 'badges/npm') {
             const pkg = opts.package;
-            if (!pkg) return svgResponse(generateBadge('npm', '?package= required', opts, '#cb3837'));
+            if (!pkg) return svgResponse(generateBadge('npm', '?package= required', badgeOpts, '#cb3837'));
             const data = await cachedKvGet(kv, `npm:${pkg}`, 'json');
-            const ver = data?.version ? `v${data.version}` : '—';
-            return svgResponse(generateBadge('npm', ver, opts, '#cb3837'));
+            const ver = data?.version ? `v${data.version}` : ':';
+            return svgResponse(generateBadge('npm', ver, badgeOpts, '#cb3837'));
         }
 
         if (route === 'badges/cargo') {
             const crate = opts.crate;
-            if (!crate) return svgResponse(generateBadge('cargo', '?crate= required', opts, '#dea584'));
+            if (!crate) return svgResponse(generateBadge('cargo', '?crate= required', badgeOpts, '#dea584'));
             const data = await cachedKvGet(kv, `crates:${crate}`, 'json');
-            const ver = data?.crate?.max_version ? `v${data.crate.max_version}` : '—';
-            return svgResponse(generateBadge('cargo', ver, opts, '#dea584'));
+            const ver = data?.crate?.max_version ? `v${data.crate.max_version}` : ':';
+            return svgResponse(generateBadge('cargo', ver, badgeOpts, '#dea584'));
         }
 
         if (route === 'badges/docker') {
             const img = opts.image;
-            if (!img) return svgResponse(generateBadge('docker', '?image= required', opts, '#2496ed'));
+            if (!img) return svgResponse(generateBadge('docker', '?image= required', badgeOpts, '#2496ed'));
             const data = await cachedKvGet(kv, `docker:${img}:tags`, 'json');
-            let ver = '—';
+            let ver = ':';
             if (data?.results?.length > 0) {
                 const nonLatest = data.results.find(t => t.name !== 'latest');
                 if (nonLatest) ver = `v${nonLatest.name}`;
             }
-            return svgResponse(generateBadge('docker', ver, opts, '#2496ed'));
+            return svgResponse(generateBadge('docker', ver, badgeOpts, '#2496ed'));
         }
 
         if (route === 'badges/ghcr') {
-            if (!opts.repo) return svgResponse(generateBadge('ghcr', '?repo= required', opts, '#2da44e'));
-            const rel = await cachedKvGet(kv, `github:${opts.repo}:release`, 'json');
-            const tag = rel?.tag_name || '—';
-            return svgResponse(generateBadge('ghcr', tag, opts, '#2da44e'));
+            const repo = resolveRequiredRepo(opts.repo);
+            if (!repo) return svgResponse(generateBadge('ghcr', '?repo= required', badgeOpts, '#2da44e'));
+            const rel = await cachedKvGet(kv, `github:${repo.alias}:release`, 'json');
+            const tag = rel?.tag_name || ':';
+            return svgResponse(generateBadge('ghcr', tag, badgeOpts, '#2da44e'));
         }
 
         if (route === 'badges/updated') {
-            if (!opts.repo) return svgResponse(generateBadge('updated', '?repo= required', opts, '#6cc644'));
-            const repo = await cachedKvGet(kv, `github:${opts.repo}:repo`, 'json');
-            let text = '—';
-            if (repo?.pushed_at) {
-                const diff = Math.floor((Date.now() - new Date(repo.pushed_at).getTime()) / (1000 * 60 * 60 * 24));
+            const repo = resolveRequiredRepo(opts.repo);
+            if (!repo) return svgResponse(generateBadge('updated', '?repo= required', badgeOpts, '#6cc644'));
+            const data = await cachedKvGet(kv, `github:${repo.alias}:repo`, 'json');
+            let text = ':';
+            if (data?.pushed_at) {
+                const diff = Math.floor((Date.now() - new Date(data.pushed_at).getTime()) / (1000 * 60 * 60 * 24));
                 if (diff === 0) text = 'today';
                 else if (diff === 1) text = 'yesterday';
                 else text = `${diff}d ago`;
             }
-            return svgResponse(generateBadge('updated', text, opts, '#6cc644'));
+            return svgResponse(generateBadge('updated', text, badgeOpts, '#6cc644'));
         }
 
         if (route === 'badges/docs') {
-            return svgResponse(generateBadge('Docs', null, opts, '#3b82f6'));
+            return svgResponse(generateBadge('Docs', null, badgeOpts, '#3b82f6'));
         }
 
         if (route === 'badges/custom') {
             const left = opts.leftText || 'label';
             const right = opts.rightText || null;
-            return svgResponse(generateBadge(left, right, opts, opts.badgeColor || '#555'));
+            return svgResponse(generateBadge(left, right, badgeOpts, opts.badgeColor || '#555'));
         }
 
         if (route === 'badges/health') {
-            if (!opts.repo) return svgResponse(generateBadge('health', '?repo= required', opts, '#4ade80'));
-            return svgResponse(generateBadge('health', 'probe', opts, '#4ade80'));
+            if (!resolveRequiredRepo(opts.repo)) return svgResponse(generateBadge('health', '?repo= required', badgeOpts, '#4ade80'));
+            return svgResponse(generateBadge('health', 'probe', badgeOpts, '#4ade80'));
         }
 
         if (route === 'calendar') {
-            const summary = await cachedKvGet(kv, 'github:ujjwalvivek:summary', 'json');
+            const summary = await cachedKvGet(kv, SUMMARY_KEY, 'json');
             const calendarGrid = summary?.data?.user?.contributionsCollection?.contributionCalendar;
             return svgResponse(generateCalendar(calendarGrid, opts));
         }
 
         if (route === 'streak') {
-            const summary = await cachedKvGet(kv, 'github:ujjwalvivek:summary', 'json');
+            const summary = await cachedKvGet(kv, SUMMARY_KEY, 'json');
             const calendarGrid = summary?.data?.user?.contributionsCollection?.contributionCalendar;
             return svgResponse(generateStreakBadge(calendarGrid, opts));
         }
 
         if (route === 'langs') {
-            const repos = opts.repo ? [opts.repo] : ALLOWED_REPOS;
+            const repos = resolveRepoList(opts.repo);
             const agg = {};
             for (const repo of repos) {
-                const r = await cachedKvGet(kv, `github:${repo}:langs`, 'json');
+                const r = await cachedKvGet(kv, `github:${repo.alias}:langs`, 'json');
                 if (!r || r.message) continue;
                 for (const [l, b] of Object.entries(r)) {
                     agg[l] = (agg[l] || 0) + b;
@@ -308,10 +363,10 @@ async function handleFetch(request, env) {
         }
 
         if (route === 'commits') {
-            const repos = opts.repo ? [opts.repo] : ALLOWED_REPOS;
+            const repos = resolveRepoList(opts.repo);
             const all = [];
             for (const repo of repos) {
-                const r = await cachedKvGet(kv, `github:${repo}:commits`, 'json');
+                const r = await cachedKvGet(kv, `github:${repo.alias}:commits`, 'json');
                 if (Array.isArray(r)) all.push(...r);
             }
             all.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -320,10 +375,10 @@ async function handleFetch(request, env) {
         }
 
         if (route === 'releases') {
-            const repos = opts.repo ? [opts.repo] : ALLOWED_REPOS;
+            const repos = resolveRepoList(opts.repo);
             const all = [];
             for (const repo of repos) {
-                const r = await cachedKvGet(kv, `github:${repo}:releases`, 'json');
+                const r = await cachedKvGet(kv, `github:${repo.alias}:releases`, 'json');
                 if (Array.isArray(r)) all.push(...r);
             }
             all.sort((a, b) => new Date(b.published_at || b.created_at) - new Date(a.published_at || a.created_at));
@@ -348,12 +403,12 @@ async function handleFetch(request, env) {
 
     //? Authenticated proxy for GitHub Contents API
     if (path === '/v1/github/contents') {
-        const repo = url.searchParams.get('repo');
+        const repo = resolveRequiredRepo(url.searchParams.get('repo'));
         const ghPath = url.searchParams.get('path') || '';
-        if (!repo || !ALLOWED_REPOS.includes(repo)) {
+        if (!repo) {
             return jsonResponse({ error: 'Invalid or missing repo param' }, 400);
         }
-        const ghUrl = `https://api.github.com/repos/ujjwalvivek/${encodeURIComponent(repo)}/contents/${ghPath}`;
+        const ghUrl = `https://api.github.com/repos/${repo.owner}/${repo.name}/contents/${ghPath}`;
         try {
             const res = await fetch(ghUrl, { headers: githubHeaders(env) });
             const data = await res.json();
@@ -375,8 +430,22 @@ async function handleScheduled(env) {
 
     let successCount = 0;
     let failCount = 0;
+    let processedCount = 0;
+    let budgetUsed = 0;
+    const failures = [];
+    const totalSources = SOURCES.length;
+    const rawCursor = await env.echopoint_kv.get('_meta:refresh_cursor');
+    const parsedCursor = parseInt(rawCursor || '0', 10);
+    const startCursor = Number.isFinite(parsedCursor) && parsedCursor >= 0 && parsedCursor < totalSources ? parsedCursor : 0;
 
-    for (const source of SOURCES) {
+    for (let offset = 0; offset < totalSources; offset++) {
+        const source = SOURCES[(startCursor + offset) % totalSources];
+        const cost = sourceCost(source);
+        if (processedCount > 0 && budgetUsed + cost > REFRESH_FETCH_BUDGET) break;
+
+        processedCount++;
+        budgetUsed += cost;
+
         try {
             const headers = {};
 
@@ -399,34 +468,58 @@ async function handleScheduled(env) {
             if (!res.ok) {
                 console.warn(`[echopoint] ${source.key} → HTTP ${res.status}`);
                 failCount++;
-                continue;
+                failures.push({ key: source.key, status: res.status });
+            } else {
+                let data = await res.json();
+
+                if (source.transform) {
+                    data = await source.transform(data, env);
+                }
+
+                //? no TTL, cron overwrites
+                await env.echopoint_kv.put(source.key, JSON.stringify(data));
+                successCount++;
             }
-
-            let data = await res.json();
-
-            if (source.transform) {
-                data = await source.transform(data, env);
-            }
-
-            //? no TTL, cron overwrites
-            await env.echopoint_kv.put(source.key, JSON.stringify(data));
-            successCount++;
         } catch (err) {
             console.error(`[echopoint] ${source.key} failed:`, err.message);
             failCount++;
+            failures.push({ key: source.key, error: err.message });
         }
     }
+
+    const nextCursor = totalSources > 0 ? (startCursor + processedCount) % totalSources : 0;
 
     await env.echopoint_kv.put(
         '_meta:last_updated',
         new Date().toISOString()
     );
+    await env.echopoint_kv.put('_meta:refresh_cursor', String(nextCursor));
     await env.echopoint_kv.put(
         '_meta:last_run',
-        JSON.stringify({ success: successCount, failed: failCount, total: SOURCES.length })
+        JSON.stringify({
+            success: successCount,
+            failed: failCount,
+            processed: processedCount,
+            total: totalSources,
+            start_cursor: startCursor,
+            next_cursor: nextCursor,
+            fetch_budget_used: budgetUsed,
+            fetch_budget_limit: REFRESH_FETCH_BUDGET,
+            failures,
+        })
     );
 
-    console.log(`[echopoint] Refresh complete: ${successCount} ok, ${failCount} failed`);
+    console.log(`[echopoint] Refresh batch complete: ${successCount} ok, ${failCount} failed, ${processedCount}/${totalSources} processed, next cursor ${nextCursor}`);
+    return {
+        success: successCount,
+        failed: failCount,
+        processed: processedCount,
+        total: totalSources,
+        next_cursor: nextCursor,
+        fetch_budget_used: budgetUsed,
+        fetch_budget_limit: REFRESH_FETCH_BUDGET,
+        failures,
+    };
 }
 
 const Worker = {

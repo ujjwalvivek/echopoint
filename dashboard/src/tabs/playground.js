@@ -4,6 +4,8 @@ let currentEndpoint = null;
 let currentParams = {};
 let debounceTimer = null;
 let apiBaseUrl = '';
+let CONFIG = null;
+const endpointParamCache = {};
 
 const sharedLayoutBase = {
     bg: 'color', border: 'color', borderWidth: 'number',
@@ -22,11 +24,17 @@ const endpointSchemas = {
     '/svg/badges/contributions': { ...sharedBadgeLayout, ...allLogos },
     '/svg/badges/commits': { ...sharedBadgeLayout, ...allLogos },
     '/svg/badges/prs': { ...sharedBadgeLayout, ...allLogos },
-    '/svg/badges/stars': { repo: 'text', ...sharedBadgeLayout, ...allLogos },
-    '/svg/badges/npm': { package: 'text', ...sharedBadgeLayout, ...allLogos },
-    '/svg/badges/cargo': { crate: 'text', ...sharedBadgeLayout, ...allLogos },
-    '/svg/badges/docker': { image: 'text', ...sharedBadgeLayout, ...allLogos },
+    '/svg/badges/issues': { ...sharedBadgeLayout, ...allLogos },
+    '/svg/badges/stars': { repo: 'repo', ...sharedBadgeLayout, ...allLogos },
+    '/svg/badges/release': { repo: 'repo', ...sharedBadgeLayout, ...allLogos },
+    '/svg/badges/npm': { package: 'npmPackage', ...sharedBadgeLayout, ...allLogos },
+    '/svg/badges/cargo': { crate: 'crate', ...sharedBadgeLayout, ...allLogos },
+    '/svg/badges/docker': { image: 'dockerImage', ...sharedBadgeLayout, ...allLogos },
+    '/svg/badges/ghcr': { repo: 'repo', ...sharedBadgeLayout, ...allLogos },
+    '/svg/badges/updated': { repo: 'repo', ...sharedBadgeLayout, ...allLogos },
+    '/svg/badges/docs': { ...sharedBadgeLayout, ...allLogos },
     '/svg/badges/custom': { leftText: 'text', rightText: 'text', ...sharedBadgeLayout, ...allLogos },
+    '/svg/badges/health': { repo: 'repo', ...sharedBadgeLayout, ...allLogos },
 
     '/svg/streak': { textColor: 'color', ...sharedLayoutBase },
     '/svg/calendar': {
@@ -35,18 +43,83 @@ const endpointSchemas = {
         textColor: 'color', ...sharedLayoutBase
     },
     '/svg/langs': {
-        repo: 'text', limit: 'number', width: 'number', height: 'number',
+        repo: 'repo', limit: 'number', width: 'number', height: 'number',
         bar: 'boolean', table: 'boolean',
         color1: 'color', color2: 'color', color3: 'color', color4: 'color', color5: 'color',
         textColor: 'color', ...sharedLayoutBase
     },
-    '/svg/commits': { repo: 'text', textColor: 'color', ...sharedLayoutBase, ...sharedColorBase }
+    '/svg/commits': { repo: 'repo', textColor: 'color', ...sharedLayoutBase, ...sharedColorBase }
 };
 
-let LOGOS = ['None'];
+const endpointDefaults = {
+    '/svg/badges/contributions': { logo: 'github' },
+    '/svg/badges/commits': { logo: 'github' },
+    '/svg/badges/prs': { logo: 'github' },
+    '/svg/badges/issues': { logo: 'github' },
+    '/svg/badges/stars': { repo: 'echopoint', logo: 'github' },
+    '/svg/badges/release': { repo: 'echopoint', logo: 'github' },
+    '/svg/badges/npm': { logo: 'npm' },
+    '/svg/badges/cargo': { logo: 'rust' },
+    '/svg/badges/docker': { logo: 'docker' },
+    '/svg/badges/ghcr': { repo: 'echopoint', logo: 'github' },
+    '/svg/badges/updated': { repo: 'echopoint', logo: 'github' },
+    '/svg/badges/docs': { logo: 'docs' },
+    '/svg/badges/custom': { logo: 'code' },
+    '/svg/badges/health': { repo: 'echopoint', logo: 'github' },
+};
+
+let LOGOS = [];
 
 export function setPlaygroundLogos(iconKeys) {
-    LOGOS = ['None', ...iconKeys];
+    LOGOS = iconKeys;
+}
+
+export function setPlaygroundConfig(config) {
+    CONFIG = config;
+}
+
+function dynamicOptions(type) {
+    if (type === 'repo') {
+        return (CONFIG?.github?.repos || [])
+            .filter(repo => repo.tracked !== false)
+            .map(repo => ({
+                value: repo.alias || repo.name,
+                label: repo.alias || `${repo.owner}/${repo.name}`,
+            }));
+    }
+    if (type === 'npmPackage') {
+        return (CONFIG?.npm || []).map(pkg => ({
+            value: pkg.alias || pkg.package,
+            label: pkg.alias || pkg.package,
+        }));
+    }
+    if (type === 'crate') {
+        return (CONFIG?.crates || []).map(crate => ({
+            value: crate.alias || crate.crate,
+            label: crate.alias || crate.crate,
+        }));
+    }
+    if (type === 'dockerImage') {
+        return (CONFIG?.docker || []).map(image => ({
+            value: image.alias || image.repository,
+            label: image.alias || `${image.namespace}/${image.repository}`,
+        }));
+    }
+    return [];
+}
+
+function defaultParamsForEndpoint(endpoint) {
+    const defaults = { ...(endpointDefaults[endpoint] || {}) };
+    const schema = endpointSchemas[endpoint] || {};
+
+    for (const [key, type] of Object.entries(schema)) {
+        if (defaults[key]) continue;
+
+        const first = dynamicOptions(type)[0]?.value;
+        if (first) defaults[key] = first;
+    }
+
+    return defaults;
 }
 
 function renderControls(schema, container) {
@@ -68,6 +141,16 @@ function renderControls(schema, container) {
             `;
         } else if (type === 'text' || type === 'number') {
             html += `<input type="${type}" class="${styles.input}" data-key="${key}" value="${currentParams[key] || ''}" placeholder="e.g. value" />`;
+        } else if (type === 'repo' || type === 'npmPackage' || type === 'crate' || type === 'dockerImage') {
+            const options = dynamicOptions(type);
+            if (options.length > 0) {
+                html += `<select class="${styles.input}" data-key="${key}">
+                    <option value="">Default</option>
+                    ${options.map(opt => `<option value="${opt.value}" ${currentParams[key] === opt.value ? 'selected' : ''}>${opt.label}</option>`).join('')}
+                </select>`;
+            } else {
+                html += `<input type="text" class="${styles.input}" data-key="${key}" value="${currentParams[key] || ''}" placeholder="e.g. value" />`;
+            }
         } else if (type === 'boolean') {
             html += `<select class="${styles.input}" data-key="${key}">
                 <option value="">Default</option>
@@ -76,7 +159,9 @@ function renderControls(schema, container) {
             </select>`;
         } else if (type === 'select') {
             html += `<select class="${styles.input}" data-key="${key}">
-                ${LOGOS.map(l => `<option value="${l === 'None' ? '' : l}" ${currentParams[key] === l ? 'selected' : ''}>${l}</option>`).join('')}
+                <option value="" ${!currentParams[key] ? 'selected' : ''}>Default</option>
+                <option value="none" ${currentParams[key] === 'none' ? 'selected' : ''}>None</option>
+                ${LOGOS.map(l => `<option value="${l}" ${currentParams[key] === l ? 'selected' : ''}>${l}</option>`).join('')}
             </select>`;
         }
         html += `</div>`;
@@ -131,7 +216,52 @@ function triggerUpdate() {
     }, 400);
 }
 
-export function updatePlaygroundContext(endpoint) {
+async function copyText(text) {
+    if (!text) return false;
+
+    if (navigator.clipboard && window.isSecureContext) {
+        try {
+            await navigator.clipboard.writeText(text);
+            return true;
+        } catch (_) {
+            // Fall back for browsers that expose Clipboard API but deny the write.
+        }
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.top = '0';
+    textarea.style.left = '0';
+    textarea.style.width = '1px';
+    textarea.style.height = '1px';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+
+    textarea.focus();
+    textarea.select();
+
+    try {
+        return document.execCommand('copy');
+    } catch (_) {
+        return false;
+    } finally {
+        textarea.remove();
+        window.getSelection()?.removeAllRanges();
+    }
+}
+
+function bindCopyButton(button, getText) {
+    button.addEventListener('click', async () => {
+        const orig = button.innerText;
+        const copied = await copyText(getText());
+        button.innerText = copied ? 'Copied!' : 'Copy failed';
+        setTimeout(() => button.innerText = orig, 1500);
+    });
+}
+
+export function updatePlaygroundContext(endpoint, params = null) {
     const pg = document.getElementById('playgroundRoot');
     if (!pg) return;
 
@@ -142,8 +272,18 @@ export function updatePlaygroundContext(endpoint) {
 
     pg.style.display = 'flex';
     if (currentEndpoint !== endpoint) {
+        if (currentEndpoint) {
+            endpointParamCache[currentEndpoint] = { ...currentParams };
+        }
+
         currentEndpoint = endpoint;
-        currentParams = {};
+        currentParams = {
+            ...defaultParamsForEndpoint(endpoint),
+            ...(endpointParamCache[endpoint] || {}),
+            ...(params || {}),
+        };
+    } else if (params) {
+        currentParams = { ...currentParams, ...params };
     }
 
     const sel = document.getElementById('pgEndpointSelector');
@@ -165,11 +305,17 @@ export function renderPlayground(mountPoint, baseUrl) {
                     <option value="/svg/badges/contributions">Contributions Badge</option>
                     <option value="/svg/badges/commits">Commits Badge</option>
                     <option value="/svg/badges/prs">PRs Badge</option>
+                    <option value="/svg/badges/issues">Issues Badge</option>
                     <option value="/svg/badges/stars">Stars Badge</option>
+                    <option value="/svg/badges/release">Release Badge</option>
                     <option value="/svg/badges/npm">npm Badge</option>
                     <option value="/svg/badges/cargo">Crate Badge</option>
                     <option value="/svg/badges/docker">Docker Badge</option>
+                    <option value="/svg/badges/ghcr">GHCR Badge</option>
+                    <option value="/svg/badges/updated">Updated Badge</option>
+                    <option value="/svg/badges/docs">Docs Badge</option>
                     <option value="/svg/badges/custom">Custom Text Badge</option>
+                    <option value="/svg/badges/health">Health Badge</option>
                     <option value="/svg/streak">Streak Card</option>
                     <option value="/svg/calendar">Calendar Heatmap</option>
                     <option value="/svg/langs">Top Languages Bar</option>
@@ -200,21 +346,10 @@ export function renderPlayground(mountPoint, baseUrl) {
     });
 
     const btnUrl = mountPoint.querySelector('.copy-url');
-    btnUrl.addEventListener('click', () => {
-        navigator.clipboard.writeText(getQueryUrl());
-        const orig = btnUrl.innerText;
-        btnUrl.innerText = 'Copied!';
-        setTimeout(() => btnUrl.innerText = orig, 1500);
-    });
+    bindCopyButton(btnUrl, getQueryUrl);
 
     const btnMd = mountPoint.querySelector('.copy-md');
-    btnMd.addEventListener('click', () => {
-        const md = `![Echopoint SVG](${getQueryUrl()})`;
-        navigator.clipboard.writeText(md);
-        const orig = btnMd.innerText;
-        btnMd.innerText = 'Copied!';
-        setTimeout(() => btnMd.innerText = orig, 1500);
-    });
+    bindCopyButton(btnMd, () => `![Echopoint SVG](${getQueryUrl()})`);
 
     const pgHeader = mountPoint.querySelector('#pgHeader');
     pgHeader.addEventListener('click', (e) => {

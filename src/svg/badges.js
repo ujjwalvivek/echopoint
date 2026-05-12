@@ -15,19 +15,26 @@ export function generateBadge(label, value, opts = {}, defaultColor = '#ffffff00
   const displayValue = rawValue ? escapeXml(rawValue) : null;
 
   const icon = opts.logo && ICONS[opts.logo] ? ICONS[opts.logo] : null;
-  const iconWidth = icon ? 20 : 0;
-  const iconPad = icon ? 4 : 0;
-
+  const iconSize = icon ? 14 : 0;
+  const iconGap = icon ? 5 : 0;
   const charWidth = 6.8;
-  const hPad = 6;
+  const hPad = 8;
   const innerH = 20;
+  const labelTextWidth = Math.ceil(displayLabel.length * charWidth);
+  const valueTextWidth = displayValue ? Math.ceil(displayValue.length * charWidth) : 0;
+  const labelWidth = hPad + iconSize + iconGap + labelTextWidth + hPad;
+  const valueWidth = displayValue ? valueTextWidth + hPad * 2 : 0;
+  const iconSvg = icon
+    ? `<g transform="translate(${px + hPad}, ${py + (innerH - iconSize) / 2})"><svg width="${iconSize}" height="${iconSize}" viewBox="0 0 ${icon.vb}" fill="${textFill}"><path d="${icon.d}"/></svg></g>`
+    : '';
+  const labelX = icon
+    ? px + hPad + iconSize + iconGap + labelTextWidth / 2
+    : px + labelWidth / 2;
   const innerW = (() => {
     if (!displayValue) {
-      return Math.ceil(displayLabel.length * charWidth + hPad * 2 + iconWidth);
+      return labelWidth;
     }
-    const lw = Math.ceil(displayLabel.length * charWidth + hPad * 2 + iconWidth);
-    const vw = Math.ceil(displayValue.length * charWidth + hPad * 2);
-    return lw + vw;
+    return labelWidth + valueWidth;
   })();
 
   const totalWidth = innerW + px * 2;
@@ -35,10 +42,6 @@ export function generateBadge(label, value, opts = {}, defaultColor = '#ffffff00
 
   //? only label, no value
   if (!displayValue) {
-    const labelX = px + (iconWidth + innerW) / 2;
-    const iconSvg = icon
-      ? `<g transform="translate(${px + hPad + iconPad}, ${py + (innerH - 14) / 2})"><svg width="14" height="14" viewBox="0 0 ${icon.vb}" fill="${textFill}"><path d="${icon.d}"/></svg></g>`
-      : '';
     return `
 <svg width="${totalWidth}" height="${totalHeight}" viewBox="0 0 ${totalWidth} ${totalHeight}" xmlns="http://www.w3.org/2000/svg">
   <style>${FONT_FACE_MONO}</style>
@@ -49,14 +52,6 @@ export function generateBadge(label, value, opts = {}, defaultColor = '#ffffff00
   }
 
   //? label and value
-  const labelWidth = Math.ceil(displayLabel.length * charWidth + hPad * 2 + iconWidth);
-  const valueWidth = Math.ceil(displayValue.length * charWidth + hPad * 2);
-
-  const iconSvg = icon
-    ? `<g transform="translate(${px + hPad + iconPad}, ${py + (innerH - 14) / 2})"><svg width="14" height="14" viewBox="0 0 ${icon.vb}" fill="${textFill}"><path d="${icon.d}"/></svg></g>`
-    : '';
-
-  const labelX = px + (iconWidth + labelWidth) / 2;
   const valueX = px + labelWidth + valueWidth / 2;
 
   return `

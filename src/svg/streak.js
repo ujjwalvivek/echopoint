@@ -50,21 +50,27 @@ export function generateStreakBadge(calendarGrid, opts = {}) {
     const totalContributions = calendarGrid.totalContributions || chronoDays.reduce((s, d) => s + d.contributionCount, 0);
 
     const streakColor = currentStreak === 0 ? THEME.error : accent;
-    const fireIcon = currentStreak >= 7
-        ? `<g transform="translate(${px + 152}, ${py + 12})"><svg width="16" height="16" viewBox="0 0 ${ICONS.FaFire.vb}" fill="${THEME.orange}"><path d="${ICONS.FaFire.d}"/></svg></g>`
-        : '';
 
     const formatDate = (dateStr) => {
-        if (!dateStr) return '—';
+        if (!dateStr) return ':';
         const d = new Date(dateStr);
         return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     };
 
-    const innerW = 320;
-    const innerH = 130;
+    const innerW = 430;
+    const innerH = 136;
     const width = innerW + px * 2;
     const height = innerH + py * 2;
-    const colW = innerW / 3;
+    const sideW = 118;
+    const centerW = innerW - sideW * 2;
+    const leftX = px + sideW / 2;
+    const centerX = px + sideW + centerW / 2;
+    const rightX = px + sideW + centerW + sideW / 2;
+    const sep1X = px + sideW;
+    const sep2X = px + sideW + centerW;
+    const fireIcon = currentStreak >= 7
+        ? `<g transform="translate(${centerX - 8}, ${py + 12})"><svg width="16" height="16" viewBox="0 0 ${ICONS.fire.vb}" fill="${THEME.orange}"><path d="${ICONS.fire.d}"/></svg></g>`
+        : '';
 
     const bgRect = bg === 'transparent'
         ? `<rect width="${width}" height="${height}" rx="${rx}" fill="none" stroke="${borderColor}" stroke-width="${borderW}"/>`
@@ -74,32 +80,32 @@ export function generateStreakBadge(calendarGrid, opts = {}) {
 <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
   <style>
     ${FONT_FACE_MONO}
-    .num  { font-family: ${FONT_STACK}; font-weight: 700; font-size: 26px; }
-    .lbl  { font-family: ${FONT_STACK}; font-weight: 500; font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; fill: ${muted}; }
+    .num  { font-family: ${FONT_STACK}; font-weight: 700; font-size: 28px; }
+    .lbl  { font-family: ${FONT_STACK}; font-weight: 500; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; fill: ${muted}; }
     .sub  { font-family: ${FONT_STACK}; font-weight: 400; font-size: 9px; fill: ${muted}; }
-    .snum { font-family: ${FONT_STACK}; font-weight: 700; font-size: 16px; }
+    .snum { font-family: ${FONT_STACK}; font-weight: 700; font-size: 17px; }
     .sep  { stroke: ${borderColor}; stroke-width: 1; }
   </style>
   ${bgRect}
 
   <!-- Center: Current Streak -->
   ${fireIcon}
-  <text x="${px + innerW / 2}" y="${py + 52}" text-anchor="middle" class="num" fill="${streakColor}">${currentStreak}</text>
-  <text x="${px + innerW / 2}" y="${py + 68}" text-anchor="middle" class="lbl">Current Streak</text>
-  <text x="${px + innerW / 2}" y="${py + 84}" text-anchor="middle" class="sub">${currentStreak > 0 ? formatDate(streakStart) + ' — today' : 'No active streak'}</text>
+  <text x="${centerX}" y="${py + 53}" text-anchor="middle" class="num" fill="${streakColor}">${currentStreak}</text>
+  <text x="${centerX}" y="${py + 72}" text-anchor="middle" class="lbl">Current Streak</text>
+  <text x="${centerX}" y="${py + 90}" text-anchor="middle" class="sub">${currentStreak > 0 ? formatDate(streakStart) + ' - today' : 'No active streak'}</text>
 
   <!-- Vertical separators -->
-  <line x1="${px + colW}" y1="${py + 16}" x2="${px + colW}" y2="${py + innerH - 16}" class="sep"/>
-  <line x1="${px + colW * 2}" y1="${py + 16}" x2="${px + colW * 2}" y2="${py + innerH - 16}" class="sep"/>
+  <line x1="${sep1X}" y1="${py + 14}" x2="${sep1X}" y2="${py + innerH - 14}" class="sep"/>
+  <line x1="${sep2X}" y1="${py + 14}" x2="${sep2X}" y2="${py + innerH - 14}" class="sep"/>
 
   <!-- Left: Total Contributions -->
-  <text x="${px + colW / 2}" y="${py + 55}" text-anchor="middle" class="snum" fill="${text}">${totalContributions.toLocaleString()}</text>
-  <text x="${px + colW / 2}" y="${py + 72}" text-anchor="middle" class="lbl">Total</text>
-  <text x="${px + colW / 2}" y="${py + 86}" text-anchor="middle" class="sub">(365 days)</text>
+  <text x="${leftX}" y="${py + 57}" text-anchor="middle" class="snum" fill="${text}">${totalContributions.toLocaleString()}</text>
+  <text x="${leftX}" y="${py + 76}" text-anchor="middle" class="lbl">Total</text>
+  <text x="${leftX}" y="${py + 92}" text-anchor="middle" class="sub">(365 days)</text>
 
   <!-- Right: Longest Streak -->
-  <text x="${px + colW * 2 + colW / 2}" y="${py + 55}" text-anchor="middle" class="snum" fill="${text}">${longest}</text>
-  <text x="${px + colW * 2 + colW / 2}" y="${py + 72}" text-anchor="middle" class="lbl">Longest</text>
-  <text x="${px + colW * 2 + colW / 2}" y="${py + 86}" text-anchor="middle" class="sub">${longest} day${longest !== 1 ? 's' : ''}</text>
+  <text x="${rightX}" y="${py + 57}" text-anchor="middle" class="snum" fill="${text}">${longest}</text>
+  <text x="${rightX}" y="${py + 76}" text-anchor="middle" class="lbl">Longest</text>
+  <text x="${rightX}" y="${py + 92}" text-anchor="middle" class="sub">${longest} day${longest !== 1 ? 's' : ''}</text>
 </svg>`.trim();
 }
