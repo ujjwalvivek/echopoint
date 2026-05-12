@@ -14,7 +14,7 @@ export function generateReleasesList(releases, opts = {}) {
   const rx = opts.rx ?? 0;
   const px = opts.px ?? 0;
   const py = opts.py ?? 0;
-  const warn = THEME.warn;
+  const warn = opts.warnColor || THEME.warn;
 
   const innerW = 380;
   const itemHeight = 45;

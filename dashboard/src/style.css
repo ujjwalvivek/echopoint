@@ -253,7 +253,8 @@ pre {
 .topbarLeft {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 1.25rem;
+    min-width: 0;
 }
 
 .topbar h1 {
@@ -264,6 +265,38 @@ pre {
     cursor: default;
     letter-spacing: 0.1px;
     text-transform: uppercase;
+}
+
+.topbarNav {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding-left: 1rem;
+    border-left: 1px solid var(--border);
+}
+
+.topbarNavLink {
+    color: var(--text-sub);
+    font-size: 0.78rem;
+    font-weight: 700;
+    line-height: 1;
+    padding: 0.35rem 0.5rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-small);
+    text-decoration: none;
+}
+
+.topbarNavLink:hover {
+    color: var(--text);
+    background: var(--surface0);
+    border-color: var(--border);
+    text-decoration: none;
+}
+
+.topbarNavLink.active {
+    color: var(--bg-base);
+    background: var(--accent-blue);
+    border-color: var(--accent-blue);
 }
 
 .topbarActions {
@@ -392,13 +425,12 @@ pre {
 }
 
 .clickerWidget {
-    margin: auto 1.5rem 1.5rem;
     background: var(--bg-crust);
-    border: 1px dashed var(--border);
+    border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 1rem;
+    padding: 0.75rem;
     text-align: center;
-    margin-top: 2rem;
+    margin: 0;
 }
 
 .clickerTitle {
@@ -414,7 +446,7 @@ pre {
     font-size: 1.5rem;
     font-weight: 800;
     font-family: "Monaspace Krypton", monospace;
-    color: var(--accent-mauve);
+    color: var(--accent-blue);
     margin-bottom: 0.75rem;
 }
 
@@ -432,9 +464,9 @@ pre {
 }
 
 .clickerBtn:hover {
-    background: var(--accent-mauve);
+    background: var(--accent-blue);
     color: var(--bg-base);
-    border-color: var(--accent-mauve);
+    border-color: var(--accent-blue);
 }
 
 .clickerBtn:active {
@@ -481,6 +513,28 @@ pre {
 @media (max-width: 768px) {
     .hamburgerBtn {
         display: block;
+    }
+
+    .topbar {
+        padding: 0 0.75rem;
+    }
+
+    .topbarLeft {
+        gap: 0.75rem;
+    }
+
+    .topbar h1 {
+        font-size: 1.1rem;
+    }
+
+    .topbarNav {
+        gap: 0.2rem;
+        padding-left: 0.6rem;
+    }
+
+    .topbarNavLink {
+        font-size: 0.68rem;
+        padding: 0.28rem 0.35rem;
     }
 
     .topbarActions {

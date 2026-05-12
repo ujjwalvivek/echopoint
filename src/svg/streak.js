@@ -69,7 +69,7 @@ export function generateStreakBadge(calendarGrid, opts = {}) {
     const sep1X = px + sideW;
     const sep2X = px + sideW + centerW;
     const fireIcon = currentStreak >= 7
-        ? `<g transform="translate(${centerX - 8}, ${py + 12})"><svg width="16" height="16" viewBox="0 0 ${ICONS.fire.vb}" fill="${THEME.orange}"><path d="${ICONS.fire.d}"/></svg></g>`
+        ? `<g transform="translate(${centerX - 8}, ${py + 12})"><svg width="16" height="16" viewBox="0 0 ${ICONS.fire.vb}" fill="${accent}"><path d="${ICONS.fire.d}"/></svg></g>`
         : '';
 
     const bgRect = bg === 'transparent'

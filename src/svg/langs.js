@@ -9,6 +9,8 @@ export function generateLangsBar(langsObject, opts = {}) {
     const muted = opts.pctColor || THEME.textMuted;
     const borderColor = opts.border || THEME.border;
     const borderW = opts.borderWidth ?? 1;
+    const tableBorderColor = THEME.border;
+    const tableBorderOpacity = 0.72;
     const rx = opts.rx ?? 0;
     const px = opts.px ?? 0;
     const py = opts.py ?? 0;
@@ -48,7 +50,7 @@ export function generateLangsBar(langsObject, opts = {}) {
     });
 
     const innerW = opts.width || 300;
-    const rowH = 18;
+    const rowH = 20;
     const pctW = 36;
     const halfW = innerW / 2;
     const langW = halfW - pctW;
@@ -75,17 +77,18 @@ export function generateLangsBar(langsObject, opts = {}) {
 
     let tableSvg = '';
     if (showTable) {
-        const cellPad = 5;
+        const cellPad = 7;
         const dotR = 3;
         const textY = Math.round(rowH / 2) + 4;
-        let t = `<rect width="${innerW}" height="${tableH}" rx="2" fill="none" stroke="${borderColor}" stroke-width="${borderW}"/>`;
+        const gridStroke = `stroke="${tableBorderColor}" stroke-width="1" stroke-opacity="${tableBorderOpacity}"`;
+        let t = `<rect width="${innerW}" height="${tableH}" rx="0" fill="none" ${gridStroke}/>`;
 
         for (let r = 1; r < numRows; r++) {
-            t += `<line x1="0" y1="${r * rowH}" x2="${innerW}" y2="${r * rowH}" stroke="${borderColor}" stroke-width="${borderW}"/>`;
+            t += `<line x1="0" y1="${r * rowH}" x2="${innerW}" y2="${r * rowH}" ${gridStroke}/>`;
         }
 
         for (const vx of [langW, halfW, halfW + langW]) {
-            t += `<line x1="${vx}" y1="0" x2="${vx}" y2="${tableH}" stroke="${borderColor}" stroke-width="${borderW}"/>`;
+            t += `<line x1="${vx}" y1="0" x2="${vx}" y2="${tableH}" ${gridStroke}/>`;
         }
 
         items.forEach((item, idx) => {
@@ -110,8 +113,12 @@ export function generateLangsBar(langsObject, opts = {}) {
         ? `<rect width="${width}" height="${height}" rx="${rx}" fill="none" stroke="${borderColor}" stroke-width="${borderW}"/>`
         : `<rect width="${width}" height="${height}" rx="${rx}" fill="${bg}" stroke="${borderColor}" stroke-width="${borderW}"/>`;
 
+    const svgSizeAttrs = opts.responsive
+        ? 'width="100%" height="auto"'
+        : `width="${width}" height="${height}"`;
+
     return `
-<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+<svg ${svgSizeAttrs} viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
   <style>
     ${FONT_FACE_MONO}
     .lang { font-family: ${FONT_STACK}; font-size: 10px; fill: ${escapeXml(textFill)}; font-weight: 500; }

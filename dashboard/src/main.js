@@ -130,16 +130,27 @@ function initClicker(mountNode) {
     });
 }
 
+function updateTopbarNav(hash) {
+    const route = hash || window.location.hash || '#docs';
+    document.querySelectorAll('.topbarNavLink').forEach((link) => {
+        link.classList.toggle('active', link.getAttribute('href') === route);
+    });
+}
+
 function main() {
     const app = document.getElementById('app');
     const API_BASE = import.meta.env.VITE_ECHOPOINT_URL || 'https://echopoint.ujjwalvivek.com';
-    const githubBadgeUrl = `${API_BASE}/svg/badges/stars?repo=echopoint&logo=github&bg=none&badgeColor=494949&textColor=cdd6f4&rx=2`;
+    const githubBadgeUrl = `${API_BASE}/svg/badges/stars?repo=echopoint&logo=github&bg=111111&badgeColor=2b2b2b&textColor=e8e8e8&border=555555&borderWidth=2&rx=0&px=6&py=4`;
 
     app.innerHTML = `
         <div class="shell">
             <header class="topbar">
                 <div class="topbarLeft">
                     <h1>Echopoint</h1>
+                    <nav class="topbarNav" aria-label="Primary">
+                        <a class="topbarNavLink" href="#docs">Docs</a>
+                        <a class="topbarNavLink" href="#user-stats">User Stats</a>
+                    </nav>
                 </div>
                 <div class="topbarActions">
                     <a class="githubBadge" href="https://github.com/ujjwalvivek/echopoint" target="_blank" rel="noreferrer" title="Open Echopoint on GitHub">
@@ -177,6 +188,9 @@ function main() {
     });
 
     initTheme();
+    window.addEventListener('routechange', (event) => {
+        updateTopbarNav(event.detail?.hash);
+    });
 
     const router = new Router();
     const contentBox = document.getElementById('mainContent');
@@ -208,10 +222,12 @@ function main() {
                     router.add(`#${doc.id}`, () => {
                         renderDocs(contentBox, doc.id);
                         initClicker(document.getElementById('sidebarClickerMount'));
+                        updateTopbarNav(`#${doc.id}`);
                     });
                 });
 
                 router.start(`#${DOCS_DATA[0].id}`);
+                updateTopbarNav();
             });
         });
 }

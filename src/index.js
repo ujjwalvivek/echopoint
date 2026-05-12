@@ -4,9 +4,10 @@ import { generateStreakBadge } from './svg/streak.js';
 import { generateLangsBar } from './svg/langs.js';
 import { generateCommitsList } from './svg/commits.js';
 import { generateReleasesList } from './svg/releases.js';
+import { generateProjectCard } from './svg/project.js';
 import { parseParams, ICONS } from './svg/params.js';
 import { SOURCES, githubHeaders } from './sources.js';
-import { CONFIG, getTrackedGitHubRepos, publicConfig, resolveGitHubRepo } from './config.js';
+import { CONFIG, getStatusChecks, getTrackedGitHubRepos, publicConfig, resolveGitHubRepo, resolveStatusCheck } from './config.js';
 export { ClickerDO } from './clicker.js';
 
 
@@ -46,7 +47,6 @@ const DEFAULT_BADGE_LOGOS = {
     ghcr: 'github',
     updated: 'github',
     docs: 'docs',
-    custom: 'code',
     health: 'github',
 };
 
@@ -73,6 +73,44 @@ function withDefaultBadgeLogo(opts, badgeRoute) {
     const logo = DEFAULT_BADGE_LOGOS[badgeRoute];
     if (!logo || opts.logo) return opts;
     return { ...opts, logo };
+}
+
+function statusState(data) {
+    if (!data) return 'unknown';
+    if (data.ok) return 'online';
+    if (data.status || data.error) return 'offline';
+    return 'unknown';
+}
+
+function statusColor(state) {
+    if (state === 'online') return '#68d391';
+    if (state === 'offline') return '#f87171';
+    return '#fbbf24';
+}
+
+function statusHeaders(statusCheck) {
+    return {
+        'User-Agent': 'echopoint-status',
+        'Accept': statusCheck.accept || '*/*',
+    };
+}
+
+function isExpectedStatus(actual, expected) {
+    if (Array.isArray(expected)) return expected.includes(actual);
+    return actual === (expected || 200);
+}
+
+function statusSnapshot(source, payload) {
+    const check = source.statusCheck;
+    return {
+        alias: check.alias,
+        label: check.label || check.alias,
+        kind: check.kind || 'http',
+        url: source.url || null,
+        expect_status: check.expectStatus || 200,
+        checked_at: new Date().toISOString(),
+        ...payload,
+    };
 }
 
 function jsonResponse(data, status = 200) {
@@ -152,6 +190,41 @@ async function handleHealth(env) {
     });
 }
 
+async function handleStatus(env, rawAlias = null) {
+    if (rawAlias) {
+        const check = resolveStatusCheck(rawAlias, CONFIG);
+        if (!check) return jsonResponse({ error: 'Unknown status target' }, 404);
+
+        const data = await cachedKvGet(env.echopoint_kv, `status:${check.alias}`, 'json');
+        if (!data) {
+            return jsonResponse({
+                alias: check.alias,
+                label: check.label,
+                state: 'unknown',
+                ok: false,
+                checked_at: null,
+            }, 404);
+        }
+
+        return jsonResponse(data);
+    }
+
+    const entries = await Promise.all(
+        getStatusChecks(CONFIG).map(async (check) => {
+            const data = await cachedKvGet(env.echopoint_kv, `status:${check.alias}`, 'json');
+            return data || {
+                alias: check.alias,
+                label: check.label,
+                state: 'unknown',
+                ok: false,
+                checked_at: null,
+            };
+        })
+    );
+
+    return jsonResponse({ checks: entries });
+}
+
 //? Main fetch handler (router)
 async function handleFetch(request, env) {
     resetKvCache();
@@ -165,6 +238,14 @@ async function handleFetch(request, env) {
 
     if (path === '/v1/health') {
         return handleHealth(env);
+    }
+
+    if (path === '/v1/status') {
+        return handleStatus(env);
+    }
+
+    if (path.startsWith('/v1/status/')) {
+        return handleStatus(env, decodeURIComponent(path.slice('/v1/status/'.length)));
     }
 
     if (path === '/v1/config') {
@@ -210,6 +291,18 @@ async function handleFetch(request, env) {
         const badgeRoute = route.startsWith('badges/') ? route.slice('badges/'.length) : null;
         const badgeOpts = withDefaultBadgeLogo(opts, badgeRoute);
         const kv = env.echopoint_kv;
+
+        if (route === 'status') {
+            const check = resolveStatusCheck(opts.target, CONFIG);
+            if (!check) {
+                return svgResponse(generateBadge('status', '?target= required', { ...opts, logo: opts.logo || 'globe' }, '#f87171'));
+            }
+
+            const data = await cachedKvGet(kv, `status:${check.alias}`, 'json');
+            const state = statusState(data);
+            const label = data?.label || check.label || check.alias;
+            return svgResponse(generateBadge(label, state, { ...opts, logo: opts.logo || 'globe' }, statusColor(state)));
+        }
 
         if (route === 'badges/contributions') {
             const summary = await cachedKvGet(kv, SUMMARY_KEY, 'json');
@@ -333,8 +426,9 @@ async function handleFetch(request, env) {
         }
 
         if (route === 'badges/health') {
-            if (!resolveRequiredRepo(opts.repo)) return svgResponse(generateBadge('health', '?repo= required', badgeOpts, '#4ade80'));
-            return svgResponse(generateBadge('health', 'probe', badgeOpts, '#4ade80'));
+            const repo = resolveRequiredRepo(opts.repo);
+            if (!repo) return svgResponse(generateBadge('health', '?repo= required', badgeOpts, '#4ade80'));
+            return svgResponse(generateBadge(repo.alias, 'tracked', badgeOpts, '#4ade80'));
         }
 
         if (route === 'calendar') {
@@ -360,6 +454,19 @@ async function handleFetch(request, env) {
                 }
             }
             return svgResponse(generateLangsBar(agg, opts));
+        }
+
+        if (route === 'project') {
+            const repo = resolveRequiredRepo(opts.repo);
+            if (!repo) return svgResponse(generateProjectCard(null, {}, opts));
+            const [repoData, release, langs, commits, commitCount] = await Promise.all([
+                cachedKvGet(kv, `github:${repo.alias}:repo`, 'json'),
+                cachedKvGet(kv, `github:${repo.alias}:release`, 'json'),
+                cachedKvGet(kv, `github:${repo.alias}:langs`, 'json'),
+                cachedKvGet(kv, `github:${repo.alias}:commits`, 'json'),
+                cachedKvGet(kv, `github:${repo.alias}:commit_count`, 'json'),
+            ]);
+            return svgResponse(generateProjectCard(repo, { repo: repoData, release, langs, commits, commitCount }, opts));
         }
 
         if (route === 'commits') {
@@ -447,9 +554,22 @@ async function handleScheduled(env) {
         budgetUsed += cost;
 
         try {
+            if (source.statusCheck?.kind === 'internal') {
+                await env.echopoint_kv.put(source.key, JSON.stringify(statusSnapshot(source, {
+                    ok: true,
+                    state: 'online',
+                    status: 200,
+                    latency_ms: 0,
+                })));
+                successCount++;
+                continue;
+            }
+
             const headers = {};
 
-            if (source.auth === 'github') {
+            if (source.statusCheck) {
+                Object.assign(headers, statusHeaders(source.statusCheck));
+            } else if (source.auth === 'github') {
                 Object.assign(headers, githubHeaders(env));
             } else {
                 headers['User-Agent'] = 'echopoint-collector';
@@ -463,7 +583,21 @@ async function handleScheduled(env) {
             if (source.method) fetchOpts.method = source.method;
             if (source.body) fetchOpts.body = typeof source.body === 'function' ? source.body(env) : source.body;
 
+            const started = Date.now();
             const res = await fetch(source.url, fetchOpts);
+            const latencyMs = Date.now() - started;
+
+            if (source.statusCheck) {
+                const ok = isExpectedStatus(res.status, source.statusCheck.expectStatus);
+                await env.echopoint_kv.put(source.key, JSON.stringify(statusSnapshot(source, {
+                    ok,
+                    state: ok ? 'online' : 'offline',
+                    status: res.status,
+                    latency_ms: latencyMs,
+                })));
+                successCount++;
+                continue;
+            }
 
             if (!res.ok) {
                 console.warn(`[echopoint] ${source.key} → HTTP ${res.status}`);
@@ -473,7 +607,7 @@ async function handleScheduled(env) {
                 let data = await res.json();
 
                 if (source.transform) {
-                    data = await source.transform(data, env);
+                    data = await source.transform(data, env, res);
                 }
 
                 //? no TTL, cron overwrites
@@ -484,6 +618,15 @@ async function handleScheduled(env) {
             console.error(`[echopoint] ${source.key} failed:`, err.message);
             failCount++;
             failures.push({ key: source.key, error: err.message });
+            if (source.statusCheck) {
+                await env.echopoint_kv.put(source.key, JSON.stringify(statusSnapshot(source, {
+                    ok: false,
+                    state: 'offline',
+                    status: null,
+                    latency_ms: null,
+                    error: err.message,
+                })));
+            }
         }
     }
 

@@ -128,7 +128,11 @@ export function parseParams(url) {
     //? Shared color params (all SVGs)
     accentColor: validateHexColor(p.get('accentColor')),
     lineColor: validateHexColor(p.get('lineColor')),
+    positiveColor: validateHexColor(p.get('positiveColor')),
+    negativeColor: validateHexColor(p.get('negativeColor')),
+    warnColor: validateHexColor(p.get('warnColor')),
     repo: p.get('repo') || null,
+    target: p.get('target') || null,
 
     //? External package params (for badge endpoints)
     package: p.get('package') || null,

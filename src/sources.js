@@ -1,4 +1,4 @@
-import { CONFIG, getTrackedGitHubRepos } from './config.js';
+import { CONFIG, getStatusChecks, getTrackedGitHubRepos } from './config.js';
 
 const gh = (path) => `https://api.github.com${path}`;
 
@@ -16,12 +16,26 @@ function githubRepoSources(repoConfig) {
             cost: CONFIG.refresh.commitEnrichment.enabled ? 1 + CONFIG.refresh.commitEnrichment.limit : 1,
             transform: (commits, env) => enrichCommits(commits, env, CONFIG.refresh.commitEnrichment)
         },
+        {
+            key: `${prefix}:commit_count`, url: gh(`${base}/commits?per_page=1`), auth: 'github',
+            transform: (commits, _env, res) => commitCountFromResponse(commits, res)
+        },
         { key: `${prefix}:contributors`, url: gh(`${base}/contributors?per_page=10`), auth: 'github' },
         { key: `${prefix}:tags`, url: gh(`${base}/tags?per_page=5`), auth: 'github' },
         { key: `${prefix}:deployments`, url: gh(`${base}/deployments?per_page=5`), auth: 'github' },
         { key: `${prefix}:langs`, url: gh(`${base}/languages`), auth: 'github' },
         { key: `${prefix}:user`, url: gh(`/users/${owner}`), auth: 'github' },
     ];
+}
+
+function commitCountFromResponse(commits, res) {
+    const link = res.headers.get('Link') || '';
+    const lastLink = link.split(',').find((part) => part.includes('rel="last"')) || '';
+    const lastPage = lastLink.match(/[?&]page=(\d+)/)?.[1];
+    if (lastPage) {
+        return { total: Number(lastPage) };
+    }
+    return { total: Array.isArray(commits) ? commits.length : 0 };
 }
 
 async function enrichCommits(commits, env, options) {
@@ -129,6 +143,18 @@ export const SOURCES = [
     ...CONFIG.docker.map((image) => ({
         key: `docker:${image.alias}:tags`,
         url: `https://hub.docker.com/v2/namespaces/${image.namespace}/repositories/${image.repository}/tags?page_size=10`,
+    })),
+
+    //? configured uptime/status checks
+    ...getStatusChecks(CONFIG).map((check) => ({
+        key: `status:${check.alias}`,
+        url: check.url || null,
+        statusCheck: {
+            alias: check.alias,
+            label: check.label,
+            kind: check.kind || 'http',
+            expectStatus: check.expectStatus || 200,
+        },
     })),
 
     //? GitHub GraphQL for User Stats

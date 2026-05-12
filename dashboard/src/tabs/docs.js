@@ -1,17 +1,142 @@
-import styles from './docs.module.css';
-import { renderPlayground, updatePlaygroundContext } from './playground.js';
-import { renderStats } from './stats.js';
+import styles from "./docs.module.css";
+import { renderPlayground, updatePlaygroundContext } from "./playground.js";
+import { renderStats } from "./stats.js";
 
 let DOCS_DATA = [];
-export const API_BASE = import.meta.env.VITE_ECHOPOINT_URL || 'https://echopoint.ujjwalvivek.com';
+export const API_BASE =
+    import.meta.env.VITE_ECHOPOINT_URL || "https://echopoint.ujjwalvivek.com";
+const MONO_BADGE_PARAMS =
+    "bg=111111&badgeColor=2b2b2b&textColor=e8e8e8&border=555555&borderWidth=2&rx=0&px=6&py=4";
+const MONO_CARD_PARAMS =
+    "bg=111111&border=555555&borderWidth=1&rx=0&px=8&py=8&textColor=e8e8e8&accentColor=cfcfcf&lineColor=555555&positiveColor=cfcfcf&negativeColor=8a8a8a";
+const MONO_LANG_PARAMS = `${MONO_CARD_PARAMS}&pctColor=a6a6a6&color1=e8e8e8&color2=c0c0c0&color3=969696&color4=6d6d6d&color5=464646`;
+
+function relTime(dateStr) {
+    if (!dateStr) return ":";
+    const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+    if (!Number.isFinite(diff) || diff < 0) return ":";
+    if (diff < 60) return `${diff}s ago`;
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    return `${Math.floor(diff / 86400)}d ago`;
+}
+
+function fmtCount(value) {
+    const n = Number(value || 0);
+    return Number.isFinite(n) ? n.toLocaleString() : ":";
+}
+
+function sidebarRow(label, value, tone = "") {
+    return `
+        <div class="${styles.sidebarStatRow}">
+            <span>${label}</span>
+            <strong class="${tone ? styles[tone] : ""}">${value}</strong>
+        </div>
+    `;
+}
+
+let cachedSidebarHtml = null;
+
+function buildSidebarHtml(store, config, status) {
+    const lastRun = store["_meta:last_run"] || {};
+    const updated = store["_meta:last_updated"];
+    const repos = (config?.github?.repos || []).filter(
+        (repo) => repo.tracked !== false,
+    );
+    const packages =
+        (config?.npm || []).length +
+        (config?.crates || []).length +
+        (config?.docker || []).length;
+    const statusItems = Array.isArray(status?.checks)
+        ? status.checks
+        : Object.values(status || {});
+    const offline = statusItems.filter(
+        (item) => item && item.ok === false,
+    ).length;
+    const failures = Number(lastRun.failed || 0);
+    const success = Number(lastRun.success || 0);
+    const total = Number(lastRun.total || 0);
+
+    return `
+        <div class="${styles.sidebarBlock}">
+            <div class="${styles.sidebarTitle}">Echopoint</div>
+            <div class="${styles.sidebarBadges}">
+                <img src="${API_BASE}/svg/status?target=echopoint&logo=globe&${MONO_BADGE_PARAMS}" alt="System status" />
+                <img src="${API_BASE}/svg/badges/stars?repo=echopoint&logo=github&${MONO_BADGE_PARAMS}" alt="Echopoint stars" />
+                <img src="${API_BASE}/svg/langs?repo=echopoint&limit=4&width=250&borderWidth=4&height=8&responsive=true&${MONO_LANG_PARAMS}" alt="Echopoint language mix" />
+                <img src="${API_BASE}/svg/commits?repo=echopoint&limit=4&width=250&borderWidth=6&px=16&responsive=true&${MONO_CARD_PARAMS}" alt="Echopoint recent commits" />
+            </div>
+        </div>
+
+        <div class="${styles.sidebarBlock}">
+            <div class="${styles.sidebarTitle}">Refresh</div>
+            ${sidebarRow("Updated", relTime(updated))}
+            ${sidebarRow("Sources", `${fmtCount(success)} / ${fmtCount(total)}`, failures > 0 ? "warn" : "ok")}
+            ${sidebarRow("Failed", fmtCount(failures), failures > 0 ? "bad" : "")}
+            ${sidebarRow("Cursor", lastRun.next_cursor ?? ":")}
+            ${sidebarRow("Budget", `${fmtCount(lastRun.fetch_budget_used)} / ${fmtCount(lastRun.fetch_budget_limit)}`)}
+        </div>
+
+        <div class="${styles.sidebarBlock}">
+            <div class="${styles.sidebarTitle}">Coverage</div>
+            ${sidebarRow("Repos", fmtCount(repos.length))}
+            ${sidebarRow("Registries", fmtCount(packages))}
+            ${sidebarRow("Checks", fmtCount(config?.status?.length || 0), offline > 0 ? "warn" : "ok")}
+        </div>
+    `;
+}
+
+async function fetchSidebarData() {
+    const [storeRes, configRes, statusRes] = await Promise.all([
+        fetch(`${API_BASE}/v1/store`),
+        fetch(`${API_BASE}/v1/config`),
+        fetch(`${API_BASE}/v1/status`).catch(() => null),
+    ]);
+    const store = storeRes.ok ? await storeRes.json() : {};
+    const config = configRes.ok ? await configRes.json() : null;
+    const status = statusRes?.ok ? await statusRes.json() : {};
+    return { store, config, status };
+}
+
+async function renderSidebarTelemetry(mount) {
+    if (!mount) return;
+
+    if (cachedSidebarHtml) {
+        mount.innerHTML = cachedSidebarHtml;
+        fetchSidebarData().then(({ store, config, status }) => {
+            cachedSidebarHtml = buildSidebarHtml(store, config, status);
+            if (document.body.contains(mount)) {
+                mount.innerHTML = cachedSidebarHtml;
+            }
+        });
+        return;
+    }
+
+    mount.innerHTML = `
+        <div class="${styles.sidebarLoading}">Loading Echopoint...</div>
+    `;
+
+    try {
+        const { store, config, status } = await fetchSidebarData();
+        cachedSidebarHtml = buildSidebarHtml(store, config, status);
+        mount.innerHTML = cachedSidebarHtml;
+    } catch (err) {
+        mount.innerHTML = `
+            <div class="${styles.sidebarBlock}">
+                <div class="${styles.sidebarTitle}">Echopoint</div>
+                ${sidebarRow("Status", err.message || "Unavailable", "bad")}
+            </div>
+        `;
+    }
+}
 
 export function initDocsData(ICONS) {
-    const iconKeys = Object.keys(ICONS).join(', ');
+    const iconKeys = Object.keys(ICONS).join(", ");
 
     DOCS_DATA = [
         {
-            id: 'quick-start',
-            title: 'Quick Start',
+            id: "quick-start",
+            title: "Quick Start",
             content: `
             <div class="${styles.endpoint}">
                 <div class="${styles.endpointHeader}">
@@ -29,6 +154,7 @@ export function initDocsData(ICONS) {
                 </div>
                 <pre class="${styles.codeBlock}">![Stars](https://echopoint.ujjwalvivek.com/svg/badges/stars?repo=echopoint)</pre>
                 <pre class="${styles.codeBlock}">![Streak](https://echopoint.ujjwalvivek.com/svg/streak)</pre>
+                <pre class="${styles.codeBlock}">![Status](https://echopoint.ujjwalvivek.com/svg/status?target=echopoint)</pre>
                 <pre class="${styles.codeBlock}">![Languages](https://echopoint.ujjwalvivek.com/svg/langs?repo=journey)</pre>
                 <pre class="${styles.codeBlock}">curl -X POST -H "Authorization: Bearer $TOKEN" https://echopoint.ujjwalvivek.com/v1/refresh</pre>
             </div>
@@ -41,11 +167,11 @@ export function initDocsData(ICONS) {
                 <pre class="${styles.codeBlock}">curl -s https://echopoint.ujjwalvivek.com/v1/store/_meta:last_run</pre>
                 <p>Configured sources can show as pending until a refresh batch writes their KV keys.</p>
             </div>
-            `
+            `,
         },
         {
-            id: 'svg-routes',
-            title: 'SVG Routes',
+            id: "svg-routes",
+            title: "SVG Routes",
             content: `
             <div class="${styles.endpoint}">
                 <div class="${styles.endpointHeader}">
@@ -68,7 +194,7 @@ export function initDocsData(ICONS) {
                             <tr><td><code>/svg/badges/cargo</code></td><td><code>crate</code></td><td><code>rust</code></td><td><code>crates:{alias}</code></td></tr>
                             <tr><td><code>/svg/badges/docker</code></td><td><code>image</code></td><td><code>docker</code></td><td><code>docker:{alias}:tags</code></td></tr>
                             <tr><td><code>/svg/badges/docs</code></td><td>-</td><td><code>docs</code></td><td>static</td></tr>
-                            <tr><td><code>/svg/badges/custom</code></td><td><code>leftText</code>, <code>rightText</code></td><td><code>code</code></td><td>static</td></tr>
+                            <tr><td><code>/svg/badges/custom</code></td><td><code>leftText</code>, <code>rightText</code></td><td>-</td><td>static</td></tr>
                             <tr><td><code>/svg/badges/health</code></td><td><code>repo</code></td><td><code>github</code></td><td>config only</td></tr>
                         </tbody>
                     </table>
@@ -86,9 +212,11 @@ export function initDocsData(ICONS) {
                         <tbody>
                             <tr><td><code>/svg/streak</code></td><td>-</td><td><code>github:{owner}:summary</code></td></tr>
                             <tr><td><code>/svg/calendar</code></td><td>-</td><td><code>github:{owner}:summary</code></td></tr>
+                            <tr><td><code>/svg/status</code></td><td><code>target</code> optional</td><td><code>status:{alias}</code></td></tr>
                             <tr><td><code>/svg/langs</code></td><td><code>repo</code> optional</td><td><code>github:{alias}:langs</code></td></tr>
                             <tr><td><code>/svg/commits</code></td><td><code>repo</code> optional</td><td><code>github:{alias}:commits</code></td></tr>
                             <tr><td><code>/svg/releases</code></td><td><code>repo</code> optional</td><td><code>github:{alias}:releases</code></td></tr>
+                            <tr><td><code>/svg/project</code></td><td><code>repo</code></td><td><code>github:{alias}:repo</code>, <code>:langs</code>, <code>:commits</code>, <code>:commit_count</code></td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -105,18 +233,20 @@ export function initDocsData(ICONS) {
                         <tbody>
                             <tr><td><code>repo</code></td><td>Configured alias or configured <code>owner/name</code>.</td></tr>
                             <tr><td><code>logo</code></td><td>Explicit icon key. <code>logo=none</code> disables default route icons.</td></tr>
+                            <tr><td><code>target</code></td><td>Configured status alias for <code>/svg/status</code>.</td></tr>
                             <tr><td><code>bg</code>, <code>badgeColor</code>, <code>textColor</code></td><td>Badge colors. Use hex without <code>#</code> in URLs.</td></tr>
                             <tr><td><code>rx</code>, <code>px</code>, <code>py</code></td><td>Radius and padding.</td></tr>
                             <tr><td><code>limit</code>, <code>width</code>, <code>height</code></td><td>Route-specific sizing controls.</td></tr>
+                            <tr><td><code>responsive=true</code></td><td>Use fluid SVG dimensions where supported. Currently: <code>/svg/calendar</code>, <code>/svg/langs</code>, <code>/svg/commits</code>.</td></tr>
                         </tbody>
                     </table>
                 </div>
             </div>
-            `
+            `,
         },
         {
-            id: 'rest-ops',
-            title: 'REST / Ops',
+            id: "rest-ops",
+            title: "REST APIs",
             content: `
             <div class="${styles.endpoint}">
                 <div class="${styles.endpointHeader}">
@@ -130,6 +260,8 @@ export function initDocsData(ICONS) {
                             <tr><td><code>/v1/config</code></td><td>GET</td><td>Public config: owner, repos, packages, refresh settings.</td></tr>
                             <tr><td><code>/v1/store</code></td><td>GET</td><td>KV dump for dashboard/debugging.</td></tr>
                             <tr><td><code>/v1/store/:key</code></td><td>GET</td><td>Direct KV read.</td></tr>
+                            <tr><td><code>/v1/status</code></td><td>GET</td><td>All configured status snapshots.</td></tr>
+                            <tr><td><code>/v1/status/:alias</code></td><td>GET</td><td>One configured status snapshot.</td></tr>
                             <tr><td><code>/v1/langs</code></td><td>GET</td><td>Aggregated cached language bytes.</td></tr>
                             <tr><td><code>/v1/refresh</code></td><td>POST</td><td>Run one bounded refresh batch.</td></tr>
                             <tr><td><code>/v1/health</code></td><td>GET</td><td>Service status and last update timestamp.</td></tr>
@@ -160,11 +292,11 @@ export function initDocsData(ICONS) {
                     </table>
                 </div>
             </div>
-            `
+            `,
         },
         {
-            id: 'rules',
-            title: 'Rules',
+            id: "rules",
+            title: "Rules",
             content: `
             <div class="${styles.endpoint}">
                 <div class="${styles.endpointHeader}">
@@ -176,10 +308,8 @@ export function initDocsData(ICONS) {
                     <li>Accepted repo values are configured aliases and configured <code>owner/name</code> values.</li>
                     <li>Arbitrary GitHub repositories are not proxied.</li>
                     <li><code>/v1/config</code> exposes public config only; secrets are not returned.</li>
+                    <li>Status checks are configured aliases only. Public routes do not fetch arbitrary URLs.</li>
                 </ul>
-            </div>
-
-            <div class="${styles.endpoint}">
                 <div class="${styles.endpointHeader}">
                     <span class="${styles.method} ${styles.post}">REFRESH</span>
                     <span class="${styles.path}">Population</span>
@@ -190,9 +320,6 @@ export function initDocsData(ICONS) {
                     <li>SVG routes do not fetch upstream APIs during render.</li>
                     <li>Pending dashboard cards usually mean the matching KV key has not been written yet.</li>
                 </ul>
-            </div>
-
-            <div class="${styles.endpoint}">
                 <div class="${styles.endpointHeader}">
                     <span class="${styles.method} ${styles.get}">COMPAT</span>
                     <span class="${styles.path}">Embeds</span>
@@ -203,47 +330,52 @@ export function initDocsData(ICONS) {
                     <li>Explicit <code>logo=</code> wins over route defaults.</li>
                     <li><code>logo=none</code> disables default icons.</li>
                 </ul>
-            </div>
-
-            <div class="${styles.endpoint}">
                 <div class="${styles.endpointHeader}">
                     <span class="${styles.method} ${styles.ws}">ICONS</span>
                     <span class="${styles.path}">Available Keys</span>
                 </div>
                 <p><code>${iconKeys}</code></p>
             </div>
-            `
+            `,
         },
         {
-            id: 'user-stats',
-            title: 'User Stats Dashboard',
+            id: "user-stats",
+            title: "User Stats Dashboard",
             isStats: true,
-            content: ``
-        }
+            content: ``,
+        },
     ];
 
     const docsSections = DOCS_DATA.filter((doc) => !doc.isStats);
     const statsSection = DOCS_DATA.find((doc) => doc.isStats);
-    const docsPageToc = docsSections.map((doc) => `
+    const docsPageToc = docsSections
+        .map(
+            (doc) => `
         <button class="${styles.docTocButton}" type="button" data-scroll-target="doc-${doc.id}">
             ${doc.title}
         </button>
-    `).join('');
-    const combinedDocsContent = docsSections.map((doc, index) => `
+    `,
+        )
+        .join("");
+    const combinedDocsContent = docsSections
+        .map(
+            (doc, index) => `
         <section class="${styles.docSection}" id="doc-${doc.id}">
-            <div class="${styles.sectionLabel}">${String(index + 1).padStart(2, '0')}</div>
+            <div class="${styles.sectionLabel}">${String(index + 1).padStart(2, "0")}</div>
             <h2>${doc.title}</h2>
             ${doc.content}
         </section>
-    `).join(`<hr class="${styles.sectionDivider}" />`);
+    `,
+        )
+        .join(` `);
 
     DOCS_DATA = [
         {
-            id: 'docs',
-            title: 'Docs',
+            id: "docs",
+            title: "Docs",
             hasPlayground: true,
-            defaultPath: '/svg/badges/stars',
-            defaultParams: { repo: 'echopoint', logo: 'github' },
+            defaultPath: "/svg/badges/stars",
+            defaultParams: { repo: "echopoint", logo: "github" },
             content: `
                 <div class="${styles.docPageIntro}">
                     <span class="${styles.method} ${styles.ws}">DOCS</span>
@@ -254,38 +386,51 @@ export function initDocsData(ICONS) {
                     </div>
                 </div>
                 ${combinedDocsContent}
-            `
+            `,
         },
         {
             ...statsSection,
-            title: 'User Stats'
-        }
+            title: "User Stats",
+        },
     ];
 
     return DOCS_DATA;
 }
 
 export function renderDocs(container, activeId) {
-    const docData = DOCS_DATA.find(d => d.id === activeId);
-    const layoutCls = docData?.isStats ? styles.statsLayout : '';
-    const navHtml = DOCS_DATA.map((d) => {
-        const activeCls = d.id === activeId ? styles.active : '';
-        return '<span class="' + styles.navItem + ' ' + activeCls + '" data-id="' + d.id + '">' + d.title + '</span>';
-    }).join('');
+    const docData = DOCS_DATA.find((d) => d.id === activeId);
+    const layoutCls = docData?.isStats ? styles.statsLayout : "";
+    const sidebarOpen = window.matchMedia("(min-width: 769px)").matches
+        ? " open"
+        : "";
 
     const contentHtml = DOCS_DATA.map((d) => {
-        const activeCls = d.id === activeId ? styles.active : '';
-        return '<div class="' + styles.section + ' ' + activeCls + '" id="section-' + d.id + '">' + d.content + '</div>';
-    }).join('');
+        const activeCls = d.id === activeId ? styles.active : "";
+        return (
+            '<div class="' +
+            styles.section +
+            " " +
+            activeCls +
+            '" id="section-' +
+            d.id +
+            '">' +
+            d.content +
+            "</div>"
+        );
+    }).join("");
 
     container.innerHTML = `
         <div class="${styles.container} ${layoutCls}">
             <aside class="${styles.sidebar}">
-                <div class="${styles.sidebarTitle}">Content</div>
-                <nav class="${styles.nav}" id="docsNav">
-                    ${navHtml}
-                </nav>
-                <div id="sidebarClickerMount"></div>
+                <details class="${styles.sidebarDetails}"${sidebarOpen}>
+                    <summary class="${styles.sidebarSummary}">
+                        <span>Echopoint Stats</span>
+                    </summary>
+                    <div class="${styles.sidebarBody}">
+                        <div id="sidebarStatsMount"></div>
+                    </div>
+                </details>
+                <div class="${styles.sidebarClicker}" id="sidebarClickerMount"></div>
             </aside>
             <div class="${styles.contentWrapper}">
                 <main class="${styles.docsContent}">
@@ -296,9 +441,10 @@ export function renderDocs(container, activeId) {
         </div>
     `;
 
-    const playgroundMount = container.querySelector('#playgroundMount');
+    const playgroundMount = container.querySelector("#playgroundMount");
 
     renderPlayground(playgroundMount, API_BASE);
+    renderSidebarTelemetry(container.querySelector("#sidebarStatsMount"));
 
     if (docData?.hasPlayground) {
         updatePlaygroundContext(docData.defaultPath, docData.defaultParams);
@@ -307,32 +453,19 @@ export function renderDocs(container, activeId) {
     }
 
     if (docData?.isStats) {
-        const sec = container.querySelector('#section-' + activeId);
+        const sec = container.querySelector("#section-" + activeId);
         if (sec && !sec.innerHTML.trim()) {
             renderStats(sec);
         }
     }
 
-    const docsNav = container.querySelector('#docsNav');
-    if (docsNav) {
-        docsNav.addEventListener('click', (e) => {
-            if (e.target.classList.contains(styles.navItem)) {
-                e.target.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-                history.pushState(null, null, '#' + e.target.dataset.id);
-                window.dispatchEvent(new Event('hashchange'));
-            }
-        });
-
-        setTimeout(() => {
-            const activeItem = docsNav.querySelector('.' + styles.active);
-            if (activeItem) activeItem.scrollIntoView({ block: 'nearest', inline: 'center' });
-        }, 50);
-    }
-
-    container.querySelectorAll('[data-scroll-target]').forEach((button) => {
-        button.addEventListener('click', () => {
-            const target = container.querySelector('#' + button.dataset.scrollTarget);
-            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    container.querySelectorAll("[data-scroll-target]").forEach((button) => {
+        button.addEventListener("click", () => {
+            const target = container.querySelector(
+                "#" + button.dataset.scrollTarget,
+            );
+            if (target)
+                target.scrollIntoView({ behavior: "smooth", block: "start" });
         });
     });
 }

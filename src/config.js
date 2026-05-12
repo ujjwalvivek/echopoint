@@ -67,6 +67,20 @@ export const CONFIG = {
             repository: "synclippy",
         },
     ],
+    status: [
+        {
+            alias: "echopoint",
+            label: "system status",
+            kind: "internal",
+            expectStatus: 200,
+        },
+        {
+            alias: "site",
+            label: "website",
+            url: "https://ujjwalvivek.com",
+            expectStatus: 200,
+        },
+    ],
     refresh: {
         commitEnrichment: {
             enabled: true,
@@ -95,6 +109,21 @@ export function resolveGitHubRepo(rawRepo, config = CONFIG) {
     );
 }
 
+export function getStatusChecks(config = CONFIG) {
+    return config.status || [];
+}
+
+export function resolveStatusCheck(rawTarget, config = CONFIG) {
+    const checks = getStatusChecks(config);
+    if (!rawTarget) return checks[0] || null;
+    if (typeof rawTarget !== "string") return null;
+
+    const value = rawTarget.trim();
+    if (!value) return checks[0] || null;
+
+    return checks.find((check) => value === check.alias) || null;
+}
+
 export function publicConfig(config = CONFIG) {
     return {
         tenant: config.tenant,
@@ -120,6 +149,12 @@ export function publicConfig(config = CONFIG) {
             alias: image.alias,
             namespace: image.namespace,
             repository: image.repository,
+        })),
+        status: getStatusChecks(config).map((check) => ({
+            alias: check.alias,
+            label: check.label,
+            kind: check.kind || "http",
+            expectStatus: check.expectStatus,
         })),
         refresh: {
             commitEnrichment: {

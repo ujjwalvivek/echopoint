@@ -12,13 +12,77 @@ const sharedLayoutBase = {
     rx: 'number', px: 'number', py: 'number'
 };
 const sharedColorBase = {
-    accentColor: 'color', lineColor: 'color'
+    accentColor: 'color', lineColor: 'color', positiveColor: 'color', negativeColor: 'color'
 };
 const allLogos = { logo: 'select' };
 
 const sharedBadgeLayout = {
-    badgeColor: 'color', textColor: 'color', bg: 'color', rx: 'number', px: 'number', py: 'number'
+    badgeColor: 'color', textColor: 'color', bg: 'color', border: 'color', borderWidth: 'number',
+    rx: 'number', px: 'number', py: 'number'
 }
+
+const monoBadgeDefaults = {
+    bg: '#111111',
+    badgeColor: '#2b2b2b',
+    textColor: '#e8e8e8',
+    border: '#555555',
+    borderWidth: '2',
+    rx: '0',
+    px: '6',
+    py: '4',
+};
+
+const monoCardDefaults = {
+    bg: '#0b0b0b',
+    border: '#555555',
+    borderWidth: '2',
+    rx: '0',
+    px: '12',
+    py: '10',
+    textColor: '#e8e8e8',
+    accentColor: '#cfcfcf',
+    lineColor: '#555555',
+    positiveColor: '#cfcfcf',
+    negativeColor: '#8a8a8a',
+};
+
+const monoLangDefaults = {
+    ...monoCardDefaults,
+    responsive: 'true',
+    pctColor: '#a6a6a6',
+    color1: '#e8e8e8',
+    color2: '#c0c0c0',
+    color3: '#969696',
+    color4: '#6d6d6d',
+    color5: '#464646',
+};
+
+const monoCalendarDefaults = {
+    ...monoCardDefaults,
+    cellRx: '0',
+    level0: '#151515',
+    level1: '#3a3a3a',
+    level2: '#686868',
+    level3: '#9a9a9a',
+    level4: '#e8e8e8',
+    zeroColor: '#151515',
+};
+
+const monoCommitDefaults = {
+    ...monoCardDefaults,
+    responsive: 'true',
+    limit: '3',
+};
+
+const monoProjectDefaults = {
+    bg: '#0b0b0b',
+    border: '#555555',
+    badgeColor: '#2b2b2b',
+    textColor: '#e8e8e8',
+    pctColor: '#a6a6a6',
+    accentColor: '#cfcfcf',
+    width: '260',
+};
 
 const endpointSchemas = {
     '/svg/badges/contributions': { ...sharedBadgeLayout, ...allLogos },
@@ -44,11 +108,16 @@ const endpointSchemas = {
     },
     '/svg/langs': {
         repo: 'repo', limit: 'number', width: 'number', height: 'number',
-        bar: 'boolean', table: 'boolean',
+        bar: 'boolean', table: 'boolean', responsive: 'boolean',
         color1: 'color', color2: 'color', color3: 'color', color4: 'color', color5: 'color',
-        textColor: 'color', ...sharedLayoutBase
+        textColor: 'color', pctColor: 'color', ...sharedLayoutBase
     },
-    '/svg/commits': { repo: 'repo', textColor: 'color', ...sharedLayoutBase, ...sharedColorBase }
+    '/svg/commits': { repo: 'repo', limit: 'number', width: 'number', responsive: 'boolean', textColor: 'color', ...sharedLayoutBase, ...sharedColorBase },
+    '/svg/status': { target: 'statusTarget', logo: 'select', ...sharedBadgeLayout },
+    '/svg/project': {
+        repo: 'repo', width: 'number', bg: 'color', border: 'color', badgeColor: 'color',
+        textColor: 'color', pctColor: 'color', accentColor: 'color'
+    }
 };
 
 const endpointDefaults = {
@@ -64,8 +133,9 @@ const endpointDefaults = {
     '/svg/badges/ghcr': { repo: 'echopoint', logo: 'github' },
     '/svg/badges/updated': { repo: 'echopoint', logo: 'github' },
     '/svg/badges/docs': { logo: 'docs' },
-    '/svg/badges/custom': { logo: 'code' },
     '/svg/badges/health': { repo: 'echopoint', logo: 'github' },
+    '/svg/status': { logo: 'globe' },
+    '/svg/project': { repo: 'echopoint', width: '260' },
 };
 
 let LOGOS = [];
@@ -105,12 +175,26 @@ function dynamicOptions(type) {
             label: image.alias || `${image.namespace}/${image.repository}`,
         }));
     }
+    if (type === 'statusTarget') {
+        return (CONFIG?.status || []).map(check => ({
+            value: check.alias,
+            label: check.label || check.alias,
+        }));
+    }
     return [];
 }
 
 function defaultParamsForEndpoint(endpoint) {
-    const defaults = { ...(endpointDefaults[endpoint] || {}) };
     const schema = endpointSchemas[endpoint] || {};
+    const defaults = {
+        ...(endpoint.startsWith('/svg/badges/') || endpoint === '/svg/status' ? monoBadgeDefaults : {}),
+        ...(endpoint === '/svg/streak' ? monoCardDefaults : {}),
+        ...(endpoint === '/svg/commits' ? monoCommitDefaults : {}),
+        ...(endpoint === '/svg/langs' ? monoLangDefaults : {}),
+        ...(endpoint === '/svg/calendar' ? monoCalendarDefaults : {}),
+        ...(endpoint === '/svg/project' ? monoProjectDefaults : {}),
+        ...(endpointDefaults[endpoint] || {}),
+    };
 
     for (const [key, type] of Object.entries(schema)) {
         if (defaults[key]) continue;
@@ -141,7 +225,7 @@ function renderControls(schema, container) {
             `;
         } else if (type === 'text' || type === 'number') {
             html += `<input type="${type}" class="${styles.input}" data-key="${key}" value="${currentParams[key] || ''}" placeholder="e.g. value" />`;
-        } else if (type === 'repo' || type === 'npmPackage' || type === 'crate' || type === 'dockerImage') {
+        } else if (type === 'repo' || type === 'npmPackage' || type === 'crate' || type === 'dockerImage' || type === 'statusTarget') {
             const options = dynamicOptions(type);
             if (options.length > 0) {
                 html += `<select class="${styles.input}" data-key="${key}">
@@ -169,7 +253,7 @@ function renderControls(schema, container) {
     container.innerHTML = html;
 
     container.querySelectorAll('input, select').forEach(el => {
-        el.addEventListener('input', (e) => {
+        const updateParam = (e) => {
             const key = e.target.dataset.key;
             let val = e.target.value;
 
@@ -183,7 +267,9 @@ function renderControls(schema, container) {
 
             currentParams[key] = val;
             triggerUpdate();
-        });
+        };
+
+        el.addEventListener(el.tagName.toLowerCase() === 'select' ? 'change' : 'input', updateParam);
     });
 }
 
@@ -315,11 +401,13 @@ export function renderPlayground(mountPoint, baseUrl) {
                     <option value="/svg/badges/updated">Updated Badge</option>
                     <option value="/svg/badges/docs">Docs Badge</option>
                     <option value="/svg/badges/custom">Custom Text Badge</option>
+                    <option value="/svg/status">Uptime Badge</option>
                     <option value="/svg/badges/health">Health Badge</option>
                     <option value="/svg/streak">Streak Card</option>
                     <option value="/svg/calendar">Calendar Heatmap</option>
                     <option value="/svg/langs">Top Languages Bar</option>
                     <option value="/svg/commits">Recent Commits</option>
+                    <option value="/svg/project">Project Card</option>
                 </select>
             </div>
             

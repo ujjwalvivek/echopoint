@@ -14,21 +14,22 @@ export function generateCommitsList(commits, opts = {}) {
   const rx = opts.rx ?? 0;
   const px = opts.px ?? 0;
   const py = opts.py ?? 0;
-  const green = THEME.green;
-  const red = THEME.error;
+  const green = opts.positiveColor || THEME.green;
+  const red = opts.negativeColor || THEME.error;
 
-  const innerW = 380;
+  const innerW = opts.width || 380;
   const itemHeight = 45;
   const contentH = commits.length * itemHeight;
   const width = innerW + px * 2;
   const totalHeight = contentH + py * 2;
+  const maxMsgLen = Math.max(22, Math.floor((innerW - 38) / 7));
 
   let itemsHtml = '';
   let currentY = py;
 
   commits.forEach((commit, idx) => {
     let msg = escapeXml(commit.message || 'Updated code');
-    if (msg.length > 52) msg = msg.substring(0, 50) + '…';
+    if (msg.length > maxMsgLen) msg = msg.substring(0, maxMsgLen - 1) + '…';
 
     const dateObj = new Date(commit.date);
     const dateStr = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -49,8 +50,12 @@ export function generateCommitsList(commits, opts = {}) {
     ? `<rect width="${width}" height="${totalHeight}" rx="${rx}" fill="none" stroke="${borderColor}" stroke-width="${borderW}"/>`
     : `<rect width="${width}" height="${totalHeight}" rx="${rx}" fill="${bg}" stroke="${borderColor}" stroke-width="${borderW}"/>`;
 
+  const svgSizeAttrs = opts.responsive
+    ? 'width="100%" height="auto"'
+    : `width="${width}" height="${totalHeight}"`;
+
   return `
-<svg width="${width}" height="${totalHeight}" viewBox="0 0 ${width} ${totalHeight}" xmlns="http://www.w3.org/2000/svg">
+<svg ${svgSizeAttrs} viewBox="0 0 ${width} ${totalHeight}" xmlns="http://www.w3.org/2000/svg">
   <style>
     ${FONT_FACE_MONO}
     .t  { font-family: ${FONT_STACK}; font-size: 12px; fill: ${text}; font-weight: 500; }
