@@ -52,6 +52,24 @@ export const CONFIG = {
                 name: "baremetal",
                 tracked: true,
             },
+            {
+                alias: "devhub",
+                owner: "ujjwalvivek",
+                name: "devhub",
+                tracked: true,
+            },
+            {
+                alias: "ujjwalvivek",
+                owner: "ujjwalvivek",
+                name: "ujjwalvivek",
+                tracked: true,
+            },
+            {
+                alias: "thereckoning",
+                owner: "ujjwalvivek",
+                name: "thereckoning",
+                tracked: true,
+            },
         ],
     },
     npm: [
@@ -59,7 +77,11 @@ export const CONFIG = {
         { alias: "dino-blink", package: "@ujjwalvivek/dino-blink" },
         { alias: "requiem", package: "@ujjwalvivek/requiem" },
     ],
-    crates: [{ alias: "journey-engine", crate: "journey-engine" }],
+    crates: [
+        { alias: "journey-engine", crate: "journey-engine" },
+        { alias: "journey-sound", crate: "journey-sound" },
+        { alias: "journey-sequencer", crate: "journey-sequencer" },
+    ],
     docker: [
         {
             alias: "synclippy",
