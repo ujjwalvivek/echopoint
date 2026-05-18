@@ -70,6 +70,12 @@ export const CONFIG = {
                 name: "thereckoning",
                 tracked: true,
             },
+            {
+                alias: "root",
+                owner: "ujjwalvivek",
+                name: "root",
+                tracked: true,
+            },
         ],
     },
     npm: [
