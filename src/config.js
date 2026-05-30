@@ -76,12 +76,31 @@ export const CONFIG = {
                 name: "root",
                 tracked: true,
             },
+            {
+                alias: "pysitegen",
+                owner: "ujjwalvivek",
+                name: "pysitegen",
+                tracked: true,
+            },
+            {
+                alias: "easyapply",
+                owner: "ujjwalvivek",
+                name: "easyapply",
+                tracked: true,
+            },
+            {
+                alias: "tinyts",
+                owner: "ujjwalvivek",
+                name: "tinyts",
+                tracked: true,
+            },
         ],
     },
     npm: [
         { alias: "journey-engine", package: "@ujjwalvivek/journey-engine" },
         { alias: "dino-blink", package: "@ujjwalvivek/dino-blink" },
         { alias: "requiem", package: "@ujjwalvivek/requiem" },
+        { alias: "tinyts", package: "@ujjwalvivek/tinyts" },
     ],
     crates: [
         { alias: "journey-engine", crate: "journey-engine" },
