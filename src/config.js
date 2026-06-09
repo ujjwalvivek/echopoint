@@ -100,6 +100,18 @@ export const CONFIG = {
                 name: "gogs",
                 tracked: true,
             },
+            {
+                alias: "greedysnek",
+                owner: "ujjwalvivek",
+                name: "greedysnek",
+                tracked: true,
+            },
+            {
+                alias: "unityCoordinationFramework",
+                owner: "ujjwalvivek",
+                name: "unityCoordinationFramework",
+                tracked: true,
+            },
         ],
     },
     npm: [
