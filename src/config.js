@@ -94,6 +94,12 @@ export const CONFIG = {
                 name: "tinyts",
                 tracked: true,
             },
+            {
+                alias: "gogs",
+                owner: "ujjwalvivek",
+                name: "gogs",
+                tracked: true,
+            },
         ],
     },
     npm: [
