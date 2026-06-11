@@ -112,6 +112,12 @@ export const CONFIG = {
                 name: "unityCoordinationFramework",
                 tracked: true,
             },
+            {
+                alias: "loom",
+                owner: "ujjwalvivek",
+                name: "loom",
+                tracked: true,
+            },
         ],
     },
     npm: [
