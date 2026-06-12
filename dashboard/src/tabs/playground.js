@@ -55,6 +55,7 @@ const monoLangDefaults = {
     color3: '#969696',
     color4: '#6d6d6d',
     color5: '#464646',
+    color6: '#2a2a2a',
 };
 
 const monoCalendarDefaults = {
@@ -109,7 +110,7 @@ const endpointSchemas = {
     '/svg/langs': {
         repo: 'repo', limit: 'number', width: 'number', height: 'number',
         bar: 'boolean', table: 'boolean', responsive: 'boolean',
-        color1: 'color', color2: 'color', color3: 'color', color4: 'color', color5: 'color',
+        color1: 'color', color2: 'color', color3: 'color', color4: 'color', color5: 'color', color6: 'color',
         textColor: 'color', pctColor: 'color', ...sharedLayoutBase
     },
     '/svg/commits': { repo: 'repo', limit: 'number', width: 'number', responsive: 'boolean', textColor: 'color', ...sharedLayoutBase, ...sharedColorBase },

@@ -27,7 +27,7 @@ export function generateLangsBar(langsObject, opts = {}) {
     };
 
     const OVERFLOW = ['#8b949e', '#6e7681', '#484f58', '#30363d', '#21262d'];
-    const colorOverrides = [opts.color1, opts.color2, opts.color3, opts.color4, opts.color5];
+    const colorOverrides = [opts.color1, opts.color2, opts.color3, opts.color4, opts.color5, opts.color6];
 
     const totalBytes = Object.values(langsObject).reduce((a, b) => a + b, 0);
     const sortedLangs = Object.entries(langsObject).sort((a, b) => b[1] - a[1]);
@@ -39,7 +39,7 @@ export function generateLangsBar(langsObject, opts = {}) {
 
     const items = topLangs.map(([lang, bytes], idx) => {
         let color;
-        if (idx < 5 && colorOverrides[idx]) {
+        if (idx < 6 && colorOverrides[idx]) {
             color = colorOverrides[idx];
         } else if (lang === 'Other') {
             color = OVERFLOW[0];

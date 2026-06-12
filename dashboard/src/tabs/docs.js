@@ -9,7 +9,7 @@ const MONO_BADGE_PARAMS =
     "bg=111111&badgeColor=2b2b2b&textColor=e8e8e8&border=555555&borderWidth=2&rx=0&px=6&py=4";
 const MONO_CARD_PARAMS =
     "bg=111111&border=555555&borderWidth=1&rx=0&px=8&py=8&textColor=e8e8e8&accentColor=cfcfcf&lineColor=555555&positiveColor=cfcfcf&negativeColor=8a8a8a";
-const MONO_LANG_PARAMS = `${MONO_CARD_PARAMS}&pctColor=a6a6a6&color1=e8e8e8&color2=c0c0c0&color3=969696&color4=6d6d6d&color5=464646`;
+const MONO_LANG_PARAMS = `${MONO_CARD_PARAMS}&pctColor=a6a6a6&color1=e8e8e8&color2=c0c0c0&color3=969696&color4=6d6d6d&color5=464646&color6=2a2a2a`;
 
 function relTime(dateStr) {
     if (!dateStr) return ":";
