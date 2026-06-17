@@ -118,6 +118,12 @@ export const CONFIG = {
                 name: "loom",
                 tracked: true,
             },
+            {
+                alias: "svgmetro",
+                owner: "ujjwalvivek",
+                name: "svgmetro",
+                tracked: true,
+            },
         ],
     },
     npm: [
@@ -125,6 +131,7 @@ export const CONFIG = {
         { alias: "dino-blink", package: "@ujjwalvivek/dino-blink" },
         { alias: "requiem", package: "@ujjwalvivek/requiem" },
         { alias: "tinyts", package: "@ujjwalvivek/tinyts" },
+        { alias: "svgmetro", package: "@ujjwalvivek/svg-metro" },
     ],
     crates: [
         { alias: "journey-engine", crate: "journey-engine" },
