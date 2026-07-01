@@ -124,6 +124,12 @@ export const CONFIG = {
                 name: "svgmetro",
                 tracked: true,
             },
+            {
+                alias: "devhub-gpui",
+                owner: "ujjwalvivek",
+                name: "devhub-gpui",
+                tracked: true,
+            },
         ],
     },
     npm: [
