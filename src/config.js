@@ -130,6 +130,48 @@ export const CONFIG = {
                 name: "devhub-gpui",
                 tracked: true,
             },
+            {
+                alias: "chessengine",
+                owner: "ujjwalvivek",
+                name: "chessengine",
+                tracked: true,
+            },
+            {
+                alias: "kuki",
+                owner: "ujjwalvivek",
+                name: "kuki",
+                tracked: true,
+            },
+            {
+                alias: "llmeter",
+                owner: "ujjwalvivek",
+                name: "llmeter",
+                tracked: true,
+            },
+            {
+                alias: "woodpecker",
+                owner: "ujjwalvivek",
+                name: "woodpecker",
+                tracked: true,
+            },
+            {
+                alias: "cutubagi",
+                owner: "ujjwalvivek",
+                name: "cutubagi",
+                tracked: true,
+            },
+            {
+                alias: "pixess",
+                owner: "ujjwalvivek",
+                name: "pixess",
+                tracked: true,
+            },
+            {
+                alias: "stonkclimbracing",
+                owner: "ujjwalvivek",
+                name: "stonkclimbracing",
+                tracked: true,
+            },
         ],
     },
     npm: [
