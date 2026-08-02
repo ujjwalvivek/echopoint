@@ -178,6 +178,12 @@ export const CONFIG = {
                 name: "mazerunner",
                 tracked: true,
             },
+            {
+                alias: "bootsnaktor",
+                owner: "ujjwalvivek",
+                name: "bootsnaktor",
+                tracked: true,
+            },
         ],
     },
     npm: [
