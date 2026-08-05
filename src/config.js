@@ -184,6 +184,12 @@ export const CONFIG = {
                 name: "bootsnaktor",
                 tracked: true,
             },
+            {
+                alias: "gitedit",
+                owner: "ujjwalvivek",
+                name: "gitedit",
+                tracked: true,
+            },
         ],
     },
     npm: [
