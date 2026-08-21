@@ -190,6 +190,30 @@ export const CONFIG = {
                 name: "gitedit",
                 tracked: true,
             },
+            {
+                alias: "rubis",
+                owner: "ujjwalvivek",
+                name: "rubis",
+                tracked: true,
+            },
+            {
+                alias: "tinybench",
+                owner: "ujjwalvivek",
+                name: "tinybench",
+                tracked: true,
+            },
+            {
+                alias: "helide",
+                owner: "ujjwalvivek",
+                name: "helide",
+                tracked: true,
+            },
+            {
+                alias: "r2go",
+                owner: "ujjwalvivek",
+                name: "r2go",
+                tracked: true,
+            },
         ],
     },
     npm: [
