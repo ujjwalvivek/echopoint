@@ -220,6 +220,12 @@ export const CONFIG = {
                 name: "voxelhalla",
                 tracked: true,
             },
+            {
+                alias: "8bitaxe",
+                owner: "ujjwalvivek",
+                name: "8bitaxe",
+                tracked: true,
+            },
         ],
     },
     npm: [
