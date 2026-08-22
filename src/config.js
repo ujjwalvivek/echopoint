@@ -214,6 +214,12 @@ export const CONFIG = {
                 name: "r2go",
                 tracked: true,
             },
+            {
+                alias: "voxelhalla",
+                owner: "ujjwalvivek",
+                name: "voxelhalla",
+                tracked: true,
+            },
         ],
     },
     npm: [
