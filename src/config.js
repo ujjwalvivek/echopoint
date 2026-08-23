@@ -226,6 +226,12 @@ export const CONFIG = {
                 name: "8bitaxe",
                 tracked: true,
             },
+            {
+                alias: "echohub",
+                owner: "ujjwalvivek",
+                name: "echohub",
+                tracked: true,
+            },
         ],
     },
     npm: [
