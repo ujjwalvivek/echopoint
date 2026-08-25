@@ -232,6 +232,12 @@ export const CONFIG = {
                 name: "echohub",
                 tracked: true,
             },
+            {
+                alias: "journey-original",
+                owner: "ujjwalvivek",
+                name: "journey-original",
+                tracked: true,
+            },
         ],
     },
     npm: [
