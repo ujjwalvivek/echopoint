@@ -238,6 +238,12 @@ export const CONFIG = {
                 name: "journey-original",
                 tracked: true,
             },
+            {
+                alias: "shadertrain",
+                owner: "ujjwalvivek",
+                name: "shadertrain",
+                tracked: true,
+            },
         ],
     },
     npm: [
