@@ -151,6 +151,7 @@ export function parseParams(url) {
     color4: validateHexColor(p.get('color4')),
     color5: validateHexColor(p.get('color5')),
     color6: validateHexColor(p.get('color6')),
+    monochrome: p.get('monochrome') === 'true' || p.get('monochrome') === '1',
 
     //? Calendar params
     level0: validateHexColor(p.get('level0')),

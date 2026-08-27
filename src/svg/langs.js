@@ -32,17 +32,21 @@ export function generateLangsBar(langsObject, opts = {}) {
     const totalBytes = Object.values(langsObject).reduce((a, b) => a + b, 0);
     const sortedLangs = Object.entries(langsObject).sort((a, b) => b[1] - a[1]);
 
+    const monochrome = opts.monochrome === true;
     const maxLangs = opts.limit ?? 6;
     const topLangs = sortedLangs.slice(0, maxLangs);
     const otherBytes = sortedLangs.slice(maxLangs).reduce((a, b) => a + b[1], 0);
     if (otherBytes > 0) topLangs.push(['Other', otherBytes]);
 
+    const palette = colorOverrides.filter(Boolean);
     const items = topLangs.map(([lang, bytes], idx) => {
         let color;
-        if (idx < 6 && colorOverrides[idx]) {
-            color = colorOverrides[idx];
+        if (palette[idx]) {
+            color = palette[idx];
         } else if (lang === 'Other') {
             color = OVERFLOW[0];
+        } else if (monochrome) {
+            color = OVERFLOW[idx % OVERFLOW.length];
         } else {
             color = LANG_COLORS[lang] || OVERFLOW[idx % OVERFLOW.length];
         }

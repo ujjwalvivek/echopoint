@@ -111,6 +111,7 @@ const endpointSchemas = {
         repo: 'repo', limit: 'number', width: 'number', height: 'number',
         bar: 'boolean', table: 'boolean', responsive: 'boolean',
         color1: 'color', color2: 'color', color3: 'color', color4: 'color', color5: 'color', color6: 'color',
+        monochrome: 'boolean',
         textColor: 'color', pctColor: 'color', ...sharedLayoutBase
     },
     '/svg/commits': { repo: 'repo', limit: 'number', width: 'number', responsive: 'boolean', textColor: 'color', ...sharedLayoutBase, ...sharedColorBase },
