@@ -252,6 +252,7 @@ export const CONFIG = {
         { alias: "requiem", package: "@ujjwalvivek/requiem" },
         { alias: "tinyts", package: "@ujjwalvivek/tinyts" },
         { alias: "svgmetro", package: "@ujjwalvivek/svg-metro" },
+        { alias: "substrate", package: "@ujjwalvivek/substrate" },
     ],
     crates: [
         { alias: "journey-engine", crate: "journey-engine" },
