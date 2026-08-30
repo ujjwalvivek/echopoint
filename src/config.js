@@ -244,6 +244,12 @@ export const CONFIG = {
                 name: "shadertrain",
                 tracked: true,
             },
+            {
+                alias: "htmlraycaster",
+                owner: "ujjwalvivek",
+                name: "htmlraycaster",
+                tracked: true,
+            },
         ],
     },
     npm: [
