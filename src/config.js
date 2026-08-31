@@ -250,6 +250,12 @@ export const CONFIG = {
                 name: "htmlraycaster",
                 tracked: true,
             },
+            {
+                alias: "releasegen",
+                owner: "ujjwalvivek",
+                name: "releasegen",
+                tracked: true,
+            },
         ],
     },
     npm: [
