@@ -68,3 +68,9 @@ npm run build
 ## Environment Variables
 
 The worker requires specific environment variables and secrets (like GitHub access tokens) to fetch data from external APIs. These are configured via `wrangler secret put` for sensitive keys. The dashboard uses `VITE_ECHOPOINT_URL` to point to the active worker URL.
+
+<!-- releasegen:license:start -->
+## License
+
+This source code is licensed under the [MIT License](LICENSE).
+<!-- releasegen:license:end -->
