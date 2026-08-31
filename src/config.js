@@ -95,6 +95,12 @@ export const CONFIG = {
                 tracked: true,
             },
             {
+                alias: "lunaland",
+                owner: "ujjwalvivek",
+                name: "lunaland",
+                tracked: true,
+            },
+            {
                 alias: "gogs",
                 owner: "ujjwalvivek",
                 name: "gogs",
