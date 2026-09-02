@@ -324,6 +324,18 @@ export const CONFIG = {
                 name: "kanban.pwsh",
                 tracked: true,
             },
+            {
+                alias: "parkourgameproject",
+                owner: "ujjwalvivek",
+                name: "parkourgameproject",
+                tracked: true,
+            },
+            {
+                alias: "davefuck",
+                owner: "ujjwalvivek",
+                name: "davefuck",
+                tracked: true,
+            },
         ],
     },
     npm: [
@@ -350,6 +362,22 @@ export const CONFIG = {
         { alias: "echohub", package: "echohub" },
         { alias: "pysitegen", package: "pysitegen" },
     ],
+    // Presentation-only preferences for the parallel language V2 routes.
+    // The raw language totals and the original /svg/langs route do not use
+    // these values.
+    languageDisplay: {
+        primary: ["Rust", "TypeScript", "JavaScript", "Go"],
+        // HTML and CSS intentionally stay in the Languages section.
+        // These are GitHub Linguist keys that belong in Frameworks when they
+        // appear in the collected language data.
+        frameworks: [
+            "Astro", "Svelte", "Vue", "Angular", "React", "Next.js", "Nuxt",
+            "Remix", "Solid", "Qwik", "Ember", "Marko", "Jinja", "Handlebars",
+            "Liquid", "Twig", "Blade", "Razor", "Pug", "EJS", "ERB", "Haml",
+        ],
+        esolangs: ["Brainfuck"],
+        limit: 6,
+    },
     status: [
         {
             alias: "echopoint",
@@ -461,6 +489,12 @@ export function publicConfig(config = CONFIG) {
             alias: pkg.alias,
             package: pkg.package,
         })),
+        languageDisplay: {
+            primary: [...(config.languageDisplay?.primary || [])],
+            frameworks: [...(config.languageDisplay?.frameworks || config.languageDisplay?.demoted || [])],
+            esolangs: [...(config.languageDisplay?.esolangs || [])],
+            limit: Number(config.languageDisplay?.limit || 6),
+        },
         status: getStatusChecks(config).map((check) => ({
             alias: check.alias,
             label: check.label,
