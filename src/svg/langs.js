@@ -58,6 +58,7 @@ export function generateLangsBar(langsObject, opts = {}) {
     const pctW = 36;
     const halfW = innerW / 2;
     const langW = halfW - pctW;
+    const pctX = langW + (pctW / 2);
     const numRows = showTable ? Math.ceil(items.length / 2) : 0;
     const tableH = numRows * rowH;
     const gap = showBar && showTable ? 8 : 0;
@@ -105,7 +106,7 @@ export function generateLangsBar(langsObject, opts = {}) {
       <g transform="translate(${ox}, ${oy})">
         <circle cx="${cellPad + dotR}" cy="${rowH / 2}" r="${dotR}" fill="${item.color}"/>
         <text x="${cellPad + dotR * 2 + 3}" y="${textY}" class="lang">${name}</text>
-        <text x="${halfW - cellPad}" y="${textY}" text-anchor="end" class="pct">${item.pct}%</text>
+        <text x="${pctX}" y="${textY}" text-anchor="middle" class="pct">${item.pct}%</text>
       </g>`;
         });
 
