@@ -22,6 +22,10 @@ const FALLBACK_CONFIG = {
     docker: [
         { alias: 'synclippy', namespace: 'ujjwalvivek', repository: 'synclippy' },
     ],
+    pypi: [
+        { alias: 'echohub', package: 'echohub' },
+        { alias: 'pysitegen', package: 'pysitegen' },
+    ],
 };
 
 async function fetchConfig() {
@@ -102,26 +106,32 @@ export async function renderStats(container) {
 
         const lastRun = store['_meta:last_run'] || { success: 0, failed: 0, total: 0 };
         const lastUpdated = store['_meta:last_updated'];
-        const trackedRepos = (config.github?.repos || [])
+        const configuredRepos = (config.github?.repos || [])
             .filter(repo => repo.tracked !== false);
+        const trackedRepos = configuredRepos.filter(repo => repo.private !== true);
+        const privateRepoCount = configuredRepos.length - trackedRepos.length;
         const trackedRepoAliases = trackedRepos.map(repo => repo.alias || repo.name);
         const trackedReposLabel = trackedRepoAliases.join(', ') || 'none';
+        const privateLabel = privateRepoCount > 0
+            ? ` · ${privateRepoCount} configured private repo${privateRepoCount === 1 ? '' : 's'} hidden`
+            : '';
 
         const userSummary = store[`github:${config.github?.owner || FALLBACK_CONFIG.github.owner}:summary`];
         let userSummaryHtml = '';
         if (userSummary && userSummary.data && userSummary.data.user) {
             const u = userSummary.data.user;
-            const c = u.contributionsCollection;
-            const calendar = c.contributionCalendar;
+            const c = u.contributionsCollection || {};
+            const allTime = u.allTime || {};
+            const calendar = allTime.weeks ? allTime : (c.contributionCalendar || {});
             userSummaryHtml = `
                 <div class="${styles.section}">
                     <div class="${styles.grid} ${styles.fullWidthGrid}">
                         ${renderCard(u.login, 'Summary',
-                makeRow('Past Year Total', calendar.totalContributions?.toLocaleString(), 'green') +
-                makeRow('Total Commits', c.totalCommitContributions?.toLocaleString(), 'blue') +
-                makeRow('Total PRs', c.totalPullRequestContributions?.toLocaleString(), 'peach') +
-                makeRow('Repos Contributed', c.totalRepositoriesWithContributedIssues?.toLocaleString(), 'purple') +
-                makeRow('Restricted', c.restrictedContributionsCount?.toLocaleString())
+                makeRow('All-time Contributions', calendar.totalContributions?.toLocaleString(), 'green') +
+                makeRow('All-time Commits', (allTime.totalCommitContributions ?? c.totalCommitContributions)?.toLocaleString(), 'blue') +
+                makeRow('All-time PRs', (allTime.totalPullRequestContributions ?? c.totalPullRequestContributions)?.toLocaleString(), 'peach') +
+                makeRow('Issue Repos (past year)', c.totalRepositoriesWithContributedIssues?.toLocaleString(), 'purple') +
+                makeRow('Restricted (included)', (allTime.restrictedContributionsCount ?? c.restrictedContributionsCount)?.toLocaleString())
                 , userSummary)}
                     </div>
                 </div>
@@ -182,18 +192,42 @@ export async function renderStats(container) {
             return renderCard(`npm:${alias}`, 'latest', content, data);
         }).join('');
 
-        const langRepo = trackedRepos.find(repo => repo.alias === 'journey') || trackedRepos[0];
-        const langRepoAlias = langRepo?.alias || langRepo?.name;
-        const journeyLangs = langRepoAlias ? store[`github:${langRepoAlias}:langs`] || {} : {};
-        const totalBytes = Object.values(journeyLangs).reduce((a, b) => a + b, 0);
+        const pypiHtml = (config.pypi || []).map(pkg => {
+            const alias = pkg.alias || pkg.package;
+            const data = store[`pypi:${alias}`];
+            const info = data?.info || data || {};
+            if (!data || !info.version) {
+                return pendingCard(`pypi:${alias}`, makeRow('Package', pkg.package));
+            }
+            const content = makeRow('Version', `v${info.version}`, 'green') +
+                makeRow('Python', info.requires_python || 'Any', 'blue') +
+                makeRow('License', truncate(info.license, 30), 'purple') +
+                makeRow('Summary', truncate(info.summary, 45));
+            return renderCard(`pypi:${alias}`, 'latest', content, data);
+        }).join('');
+
+        const allLangs = {};
+        trackedRepos.forEach(repo => {
+            const alias = repo.alias || repo.name;
+            const repoLangs = store[`github:${alias}:langs`] || {};
+            Object.entries(repoLangs).forEach(([language, bytes]) => {
+                allLangs[language] = (allLangs[language] || 0) + Number(bytes || 0);
+            });
+        });
+        const privateLangs = store[`github:private:${config.github?.owner || FALLBACK_CONFIG.github.owner}:langs`]?.languages || {};
+        Object.entries(privateLangs).forEach(([language, bytes]) => {
+            allLangs[language] = (allLangs[language] || 0) + Number(bytes || 0);
+        });
+        const totalBytes = Object.values(allLangs).reduce((a, b) => a + b, 0);
         let langsHtml = '';
         if (totalBytes > 0) {
-            langsHtml = `<div style="margin-top:1rem;margin-bottom:0.5rem;font-size:0.75rem;font-weight:bold;color:var(--text-muted)">Language Bytes (GitHub)</div>`;
-            langsHtml += Object.entries(journeyLangs).map(([l, b]) => makeRow(l, b.toLocaleString(), 'blue')).join('');
+            langsHtml = Object.entries(allLangs)
+                .sort(([, a], [, b]) => b - a)
+                .map(([l, b]) => makeRow(l, b.toLocaleString(), 'blue')).join('');
             langsHtml += makeRow('Total Bytes', totalBytes.toLocaleString(), 'green');
         }
 
-        const crateHtml = (config.crates || []).map((crate, idx) => {
+        const crateHtml = (config.crates || []).map(crate => {
             const alias = crate.alias || crate.crate;
             const crateData = store[`crates:${alias}`];
             if (!crateData || !crateData.crate) {
@@ -202,7 +236,7 @@ export async function renderStats(container) {
             return renderCard(`crates:${alias}`, 'latest',
                 makeRow('Version', crateData.crate.max_version, 'peach') +
                 makeRow('Downloads', crateData.crate.downloads?.toLocaleString(), 'purple') +
-                (idx === 0 ? langsHtml : ''),
+                '',
                 crateData
             );
         }).join('');
@@ -237,7 +271,7 @@ export async function renderStats(container) {
                     <span class="${epStyles.path}">User Aggregated Data</span>
                 </div>
                 <p>ALL data from the Echopoint KV store.</p>
-                <p style="margin-bottom:1rem;color:var(--text-muted);font-size:0.8rem;"><strong>Tracked Repos:</strong> ${trackedReposLabel}</p>
+                <p style="margin-bottom:1rem;color:var(--text-muted);font-size:0.8rem;"><strong>Tracked Repos:</strong> ${trackedReposLabel}${privateLabel}</p>
                 <div class="${styles.systemBar}">
                     <div class="${styles.sysItem}">
                         <div class="${styles.dot} ${lastRun.failed > 0 ? styles.error : ''}"></div>
@@ -271,9 +305,20 @@ export async function renderStats(container) {
                 </div>
                 <div class="${styles.grid}">
                         ${npmHtml}
+                        ${pypiHtml}
                         ${crateHtml}
                         ${dockerHtml}
                     </div>
+            </div>
+
+            <div class="${epStyles.endpoint}">
+                <div class="${epStyles.endpointHeader}">
+                    <span class="${epStyles.method} ${epStyles.get}">DUMP</span>
+                    <span class="${epStyles.path}">Language Composition</span>
+                </div>
+                <div class="${styles.grid} ${styles.fullWidthGrid}">
+                    ${renderCard('github:all', 'public repositories + sanitized private totals', langsHtml || makeRow('Status', 'No language data yet', 'red'))}
+                </div>
             </div>
         `;
 
