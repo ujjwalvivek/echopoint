@@ -10,7 +10,8 @@
         "build:dashboard": "cd dashboard && npm run build",
         "test": "node --test",
         "deploy": "npm run build:fonts && npm run build:dashboard && wrangler deploy",
-        "deploy:refresh": "node --env-file-if-exists=.env scripts/deploy-and-refresh.mjs"
+        "deploy:refresh": "node --env-file-if-exists=.env scripts/deploy-and-refresh.mjs",
+        "webhooks:sync": "node --env-file-if-exists=.env scripts/sync-webhooks.mjs"
     },
     "devDependencies": {
         "wrangler": "^4.71.0"
