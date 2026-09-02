@@ -1,5 +1,5 @@
-const https = require('https');
-const fs = require('fs');
+import { get } from 'node:https';
+import { writeFileSync } from 'node:fs';
 
 const fonts = [
   { url: 'https://cdn.ujjwalvivek.com/fonts/JetBrainsMono/Regular.woff2', id: 'JB_REG' },
@@ -10,7 +10,7 @@ const fonts = [
 
 async function fetchBase64(url) {
   return new Promise((resolve, reject) => {
-    https.get(url, (res) => {
+    get(url, (res) => {
       const data = [];
       res.on('data', (chunk) => data.push(chunk));
       res.on('end', () => resolve(Buffer.concat(data).toString('base64')));
@@ -27,7 +27,7 @@ async function run() {
     jsContent += `  ${font.id}: '${b64}',\n`;
   }
   jsContent += '};\n';
-  fs.writeFileSync('src/svg/fonts.js', jsContent);
+  writeFileSync('src/svg/fonts.js', jsContent);
   console.log('Successfully wrote src/svg/fonts.js');
 }
 

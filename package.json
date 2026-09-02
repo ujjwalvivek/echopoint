@@ -2,12 +2,15 @@
     "name": "echopoint",
     "version": "1.1.0",
     "private": true,
+    "type": "module",
     "description": "Telemetry caching worker. Fetch once, serve from cache",
     "scripts": {
         "dev": "wrangler dev",
         "build:fonts": "node src/svg/scripts/generateFonts.js",
         "build:dashboard": "cd dashboard && npm run build",
-        "deploy": "npm run build:fonts && npm run build:dashboard && wrangler deploy"
+        "test": "node --test",
+        "deploy": "npm run build:fonts && npm run build:dashboard && wrangler deploy",
+        "deploy:refresh": "node --env-file-if-exists=.env scripts/deploy-and-refresh.mjs"
     },
     "devDependencies": {
         "wrangler": "^4.71.0"
