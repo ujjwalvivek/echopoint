@@ -128,7 +128,7 @@ curl -X POST -H "Authorization: Bearer $REFRESH_TOKEN" "https://echopoint.ujjwal
 
 The first deployment, or an explicit `scope=all`, is still split into bounded batches because Cloudflare Workers Free limits external subrequests per invocation. After initial population, ordinary refreshes do not require repeatedly fetching all configured sources. A GitHub repository webhook can be pointed at `/v1/github/webhook` to refresh important repository data immediately; the cron remains the fallback.
 
-For the normal add-or-change-config workflow, use the one-shot helper. It compares the deployed config before and after deployment, refreshes only newly added or changed tracked repositories, directly refreshes every newly added/changed/missing non-GitHub source, refreshes the summary when private-repository configuration changed, and runs one bounded due pass for everything else:
+For the normal add-or-change-config workflow, use the one-shot helper. It compares the deployed config before and after deployment, refreshes newly added, changed, or incompletely cached tracked repositories, directly refreshes every newly added/changed/missing non-GitHub source, refreshes the summary when private-repository configuration changed, and runs one bounded due pass for everything else:
 
 ```bash
 npm run deploy:refresh

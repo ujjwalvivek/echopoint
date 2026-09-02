@@ -349,7 +349,7 @@ export function initDocsData(ICONS) {
                     <li>Refresh is incremental: a config/code change invalidates only the affected source signatures, while each source has its own refresh interval.</li>
                     <li>The first deployment or an explicit <code>scope=all</code> still uses bounded batches because Cloudflare Workers Free limits external subrequests per invocation. Normal refreshes do not re-fetch the entire source list.</li>
                     <li>GitHub webhooks can refresh important repo sources immediately; the two-hour cron remains the backstop.</li>
-                    <li><code>npm run deploy:refresh</code> deploys the current config, detects newly added or changed tracked repositories, and runs one bounded refresh for newly added or invalidated registry sources such as npm, PyPI, Crates.io, and Docker. Pass a repo alias to force one repo, or use <code>--summary</code> for the global aggregate.</li>
+                    <li><code>npm run deploy:refresh</code> deploys the current config, detects newly added, changed, or incompletely cached tracked repositories, and directly refreshes newly added or missing registry sources such as npm, PyPI, Crates.io, and Docker. Pass a repo alias to force one repo, or use <code>--summary</code> for the global aggregate.</li>
                     <li>SVG routes do not fetch upstream APIs during render.</li>
                     <li>Pending dashboard cards usually mean the matching KV key has not been written yet.</li>
                 </ul>

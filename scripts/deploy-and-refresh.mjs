@@ -19,10 +19,10 @@ function usage() {
   npm run deploy:refresh -- --summary
 
 With no aliases, the script compares the deployed config before and after the
-deployment and refreshes only newly added or changed tracked repositories. It
-also runs one bounded incremental due pass so newly added or invalidated
-    configured non-GitHub sources (npm, PyPI, Crates.io, Docker, and status checks)
-    are populated directly, even when the normal due batch is full.
+deployment and refreshes newly added, changed, or incompletely cached tracked
+repositories. It also directly refreshes newly added, changed, or missing
+configured non-GitHub sources (npm, PyPI, Crates.io, Docker, and status checks),
+even when the normal due batch is full.
 `);
 }
 
@@ -78,7 +78,8 @@ function repoMap(config) {
     return new Map(
         (config?.github?.repos || [])
             .map(normalizeRepo)
-            .filter((repo) => repo.alias),
+            .filter((repo) => repo.alias)
+            .map((repo) => [repo.alias, repo]),
     );
 }
 
@@ -148,6 +149,35 @@ async function missingSourceKeys(config) {
             throw error;
         }
     }));
+    return results.filter(Boolean);
+}
+
+function trackedRepositoryAliases(config) {
+    return (config?.github?.repos || [])
+        .filter((repo) => repo?.tracked !== false)
+        .map((repo) => String(repo?.alias || repo?.name || ''))
+        .filter(Boolean);
+}
+
+async function missingRepositoryAliases(config, token) {
+    const aliases = trackedRepositoryAliases(config);
+    const requiredSuffixes = ['repo', 'langs'];
+    const options = { headers: { Authorization: `Bearer ${token}` } };
+
+    const results = await Promise.all(aliases.map(async (alias) => {
+        const missing = await Promise.all(requiredSuffixes.map(async (suffix) => {
+            const key = `github:${alias}:${suffix}`;
+            try {
+                await requestJson(`/v1/store/${encodeURIComponent(key)}`, options);
+                return false;
+            } catch (error) {
+                if (error.status === 404) return true;
+                throw error;
+            }
+        }));
+        return missing.some(Boolean) ? alias : null;
+    }));
+
     return results.filter(Boolean);
 }
 
@@ -324,6 +354,7 @@ async function main() {
     const afterConfig = await requestJson('/v1/config');
     const after = repoMap(afterConfig);
     const changedAliases = changedRepositoryAliases(before, after);
+    const missingRepositories = await missingRepositoryAliases(afterConfig, token);
     const changedSources = changedSourceKeys(beforeConfig, afterConfig);
     const missingSources = await missingSourceKeys(afterConfig);
     const sourcesToRefresh = [...new Set([...changedSources, ...missingSources])];
@@ -341,9 +372,12 @@ async function main() {
     } else if (options.aliases.length > 0) {
         aliases = options.aliases;
     } else {
-        aliases = changedAliases.filter((alias) => after.get(alias)?.tracked);
+        aliases = [...new Set([
+            ...changedAliases.filter((alias) => after.get(alias)?.tracked),
+            ...missingRepositories,
+        ])];
         if (aliases.length > 0) {
-            console.log(`Detected repository changes: ${aliases.join(', ')}`);
+            console.log(`Detected repository changes or missing data: ${aliases.join(', ')}`);
         }
     }
 
