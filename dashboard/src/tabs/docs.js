@@ -221,6 +221,7 @@ export function initDocsData(ICONS) {
                             <tr><td><code>/svg/langs</code></td><td><code>repo</code> optional</td><td><code>github:{alias}:langs</code></td></tr>
                             <tr><td><code>/svg/langv2</code></td><td><code>repo</code> optional</td><td>Same cached language data as <code>/svg/langs</code>, split into Languages, Frameworks, and Esolangs sections.</td></tr>
                             <tr><td><code>/svg/commits</code></td><td><code>repo</code> optional</td><td><code>github:{alias}:commits</code></td></tr>
+                            <tr><td><code>/svg/profile</code></td><td>Profile layout, palette, and source switches</td><td>Summary, public commits, languages, configured registry sources</td></tr>
                             <tr><td><code>/svg/releases</code></td><td><code>repo</code> optional</td><td><code>github:{alias}:releases</code></td></tr>
                             <tr><td><code>/svg/project</code></td><td><code>repo</code></td><td><code>github:{alias}:repo</code>, <code>:langs</code>, <code>:commits</code>, <code>:commit_count</code></td></tr>
                         </tbody>
@@ -243,7 +244,10 @@ export function initDocsData(ICONS) {
                             <tr><td><code>bg</code>, <code>badgeColor</code>, <code>textColor</code></td><td>Badge colors. Use hex without <code>#</code> in URLs.</td></tr>
                             <tr><td><code>rx</code>, <code>px</code>, <code>py</code></td><td>Radius and padding.</td></tr>
                             <tr><td><code>limit</code>, <code>width</code>, <code>height</code></td><td>Route-specific sizing controls.</td></tr>
-                            <tr><td><code>responsive=true</code></td><td>Use fluid SVG dimensions where supported. Currently: <code>/svg/calendar</code>, <code>/svg/langs</code>, <code>/svg/langv2</code>, <code>/svg/commits</code>.</td></tr>
+                            <tr><td><code>responsive=true</code></td><td>Use fluid SVG dimensions where supported. Currently: <code>/svg/calendar</code>, <code>/svg/langs</code>, <code>/svg/langv2</code>, <code>/svg/commits</code>, <code>/svg/profile</code>.</td></tr>
+                            <tr><td><code>profileWidth</code>, <code>profileGap</code>, <code>profilePadding</code></td><td>Outer composite width, gap between columns, and outer padding for <code>/svg/profile</code>.</td></tr>
+                            <tr><td><code>profileWindow</code>, <code>profileCommitLimit</code>, <code>profileSources</code></td><td>Calendar month window, recent-commit count, and configured source visibility inside <code>/svg/profile</code>.</td></tr>
+                            <tr><td><code>limit</code></td><td>Maximum language entries per profile section. The profile playground defaults to <code>13</code>.</td></tr>
                             <tr><td><code>ytd=1</code>, <code>year=YYYY</code>, <code>window=N</code>, <code>all=1</code></td><td>Calendar period controls. The default is the current year; full history is opt-in because it is too dense for a small badge.</td></tr>
                         </tbody>
                     </table>

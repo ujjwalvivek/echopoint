@@ -80,6 +80,40 @@ const monoCommitDefaults = {
     limit: '3',
 };
 
+const monoProfileDefaults = {
+    bg: '#191724',
+    border: '#403d52',
+    borderWidth: '1',
+    rx: '0',
+    textColor: '#e0def4',
+    accentColor: '#9ccfd8',
+    lineColor: '#403d52',
+    positiveColor: '#9ccfd8',
+    negativeColor: '#eb6f92',
+    badgeColor: '#1f1d2e',
+    profileWidth: '860',
+    profileGap: '16',
+    profilePadding: '20',
+    profileWindow: '8',
+    profileCommitLimit: '3',
+    profileSources: 'true',
+    limit: '13',
+    cellRx: '0',
+    level0: '#21202e',
+    level1: '#31748f',
+    level2: '#4f8da0',
+    level3: '#78b0b9',
+    level4: '#9ccfd8',
+    zeroColor: '#21202e',
+    pctColor: '#908caa',
+    color1: '#9ccfd8',
+    color2: '#c4a7e7',
+    color3: '#f6c177',
+    color4: '#31748f',
+    color5: '#ebbcba',
+    color6: '#eb6f92',
+};
+
 const monoProjectDefaults = {
     bg: '#0b0b0b',
     border: '#555555',
@@ -128,6 +162,18 @@ const endpointSchemas = {
         textColor: 'color', pctColor: 'color', ...sharedLayoutBase
     },
     '/svg/commits': { repo: 'repo', limit: 'number', width: 'number', responsive: 'boolean', textColor: 'color', ...sharedLayoutBase, ...sharedColorBase },
+    '/svg/profile': {
+        profileWidth: 'number', profileGap: 'number', profilePadding: 'number',
+        profileWindow: 'number', profileCommitLimit: 'number', profileSources: 'boolean', limit: 'number',
+        cellRx: 'number',
+        responsive: 'boolean',
+        level0: 'color', level1: 'color', level2: 'color', level3: 'color', level4: 'color',
+        zeroColor: 'color',
+        color1: 'color', color2: 'color', color3: 'color', color4: 'color', color5: 'color', color6: 'color',
+        monochrome: 'boolean',
+        badgeColor: 'color', textColor: 'color', pctColor: 'color',
+        bg: 'color', border: 'color', borderWidth: 'number', rx: 'number', ...sharedColorBase
+    },
     '/svg/status': { target: 'statusTarget', logo: 'select', ...sharedBadgeLayout },
     '/svg/project': {
         repo: 'repo', width: 'number', bg: 'color', border: 'color', badgeColor: 'color',
@@ -212,6 +258,7 @@ function defaultParamsForEndpoint(endpoint) {
         ...(endpoint.startsWith('/svg/badges/') || endpoint === '/svg/status' ? monoBadgeDefaults : {}),
         ...(endpoint === '/svg/streak' ? monoCardDefaults : {}),
         ...(endpoint === '/svg/commits' ? monoCommitDefaults : {}),
+        ...(endpoint === '/svg/profile' ? monoProfileDefaults : {}),
         ...(endpoint === '/svg/langs' || endpoint === '/svg/langv2' ? monoLangDefaults : {}),
         ...(endpoint === '/svg/calendar' ? monoCalendarDefaults : {}),
         ...(endpoint === '/svg/project' ? monoProjectDefaults : {}),
@@ -493,6 +540,7 @@ export function renderPlayground(mountPoint, baseUrl) {
                     <option value="/svg/langs">Top Languages Bar</option>
                     <option value="/svg/langv2">Top Languages Bar V2</option>
                     <option value="/svg/commits">Recent Commits</option>
+                    <option value="/svg/profile">Profile Telemetry</option>
                     <option value="/svg/project">Project Card</option>
                 </select>
             </div>
