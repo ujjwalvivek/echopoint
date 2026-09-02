@@ -13,3 +13,4 @@ yarn-error.log*
 .env.example
 .vscode
 *_PLAN.md
+.env
