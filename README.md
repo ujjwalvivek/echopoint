@@ -129,7 +129,7 @@ Use `langv2` to evaluate the curated view without changing the original language
 
 ### Secrets
 
-`GITHUB_TOKEN` needs account read access (`read:user`) and access to the private repositories being collected. `REFRESH_TOKEN` protects manual refreshes and is required by `/v1/refresh`. `DATA_TOKEN` is optional and adds a dedicated token for private data reads; either data token or refresh token is accepted there. `GITHUB_WEBHOOK_SECRET` is required only when using the GitHub webhook endpoint.
+`GITHUB_TOKEN` needs account read access (`read:user`) and access to the private repositories being collected. `REFRESH_TOKEN` protects manual refreshes and is required by `/v1/refresh`. `DATA_TOKEN` is optional and adds a dedicated token for private data reads; either data token or refresh token is accepted there. `GITHUB_WEBHOOK_SECRET` is required only when using the GitHub webhook endpoint. The webhook synchronization command additionally needs a GitHub token with `Webhooks: write` access to the repositories it will manage; set this as `GITHUB_WEBHOOK_TOKEN` if the collector token should remain read-only, or use `GITHUB_TOKEN` when it already has that permission.
 
 ```bash
 npx wrangler secret put GITHUB_TOKEN
@@ -154,6 +154,24 @@ curl -X POST -H "Authorization: Bearer $REFRESH_TOKEN" "https://echopoint.ujjwal
 
 `scope=summary` refreshes both the all-time contribution summary and the sanitized private-language aggregate.
 `scope=pypi&package=...` refreshes one configured PyPI project without waiting behind unrelated due sources. The generic `scope=source&key=...` form does the same for any active non-GitHub source, such as `npm:...`, `crates:...`, `docker:...:tags`, or `status:...`.
+
+### GitHub webhook synchronization
+
+Repository webhooks are scoped to individual repositories. The sync command reads the local `src/config.js`, so private repository identities are available without exposing them through `/v1/config`. It matches hooks by the EchoPoint URL, leaves unrelated hooks alone, and configures `push` and `release` events by default. Dry-run is the default; only `--apply` changes GitHub:
+
+```bash
+npm run webhooks:sync -- --dry-run
+npm run webhooks:sync -- --apply
+npm run webhooks:sync -- --apply --repo backdater
+npm run webhooks:sync -- --apply --events push
+npm run webhooks:sync -- --remove
+npm run webhooks:sync -- --remove --apply
+npm run webhooks:sync -- --remove --apply --repo backdater
+```
+
+The command loads `.env` automatically, using `GITHUB_WEBHOOK_TOKEN` or `GITHUB_TOKEN` for the GitHub API and `GITHUB_WEBHOOK_SECRET` for the HMAC secret. If the secret is not present in the environment during normal `--apply`, it prompts without echoing it. The secret must be the same value configured in the Worker. Adding, updating, or removing hooks does not deploy code or push a commit; it is an explicit GitHub-side configuration change.
+
+`--remove` matches hooks by the configured EchoPoint URL and is dry-run by default. It reports what would be deleted while leaving unrelated hooks alone. Add `--apply` to delete the matching hooks; this does not restore the previous settings of a hook that existed before synchronization.
 
 The first deployment, or an explicit `scope=all`, is still split into bounded batches because Cloudflare Workers Free limits external subrequests per invocation. After initial population, ordinary refreshes do not require repeatedly fetching all configured sources. A GitHub repository webhook can be pointed at `/v1/github/webhook` to refresh important repository data immediately; the cron remains the fallback.
 
