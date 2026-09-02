@@ -129,15 +129,17 @@ export function generateLangsBarV2(langsObject, opts = {}, profile = {}) {
     const showTable = opts.table !== false;
     const innerW = opts.width || 300;
     const rowH = 20;
-    // Keep a section heading attached to its own table. The separation
-    // belongs after the table, before the next section heading.
-    const headerH = 12;
+    // Reserve real vertical space for the heading. A text baseline at y=12
+    // cannot share the table's top edge without the glyphs colliding with it.
+    // Keep the larger separation after the table out of this value; that is
+    // controlled independently by sectionGap below.
+    const headerH = 18;
     const pctW = 36;
     const halfW = innerW / 2;
     const langW = halfW - pctW;
     const pctX = langW + (pctW / 2);
     const gap = showBar && showTable ? 8 : 0;
-    const sectionGap = 18;
+    const sectionGap = 6;
     const sectionLayout = {
         innerW, langW, halfW, pctX, rowH, headerH,
         cellPad: 7, dotR: 3, tableBorderColor, tableBorderOpacity, totalBytes,

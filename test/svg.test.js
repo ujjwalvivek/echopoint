@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateCalendar } from '../src/svg/calendar.js';
 import { generateLangsBar } from '../src/svg/langs.js';
+import { generateLangsBarV2 } from '../src/svg/langs-v2.js';
 import { generateProfileTelemetry } from '../src/svg/profile.js';
 
 const weeksForYears = (count) => Array.from({ length: count * 52 }, (_, index) => ({
@@ -37,6 +38,17 @@ test('centers language percentages in their cells', () => {
 
     assert.match(svg, /x="132"[^>]*text-anchor="middle"[^>]*class="pct"/);
     assert.doesNotMatch(svg, /text-anchor="end"[^>]*class="pct"/);
+});
+
+test('keeps V2 language sections compact and separated', () => {
+    const svg = generateLangsBarV2({ Rust: 100, Go: 80, Svelte: 40, Brainfuck: 20 }, {
+        width: 300,
+    }, {
+        frameworks: ['Svelte'],
+        esolangs: ['Brainfuck'],
+    });
+
+        assert.match(svg, /viewBox="0 0 300 144"/);
 });
 
 test('composes profile telemetry into one aligned SVG surface', () => {
