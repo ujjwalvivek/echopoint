@@ -121,7 +121,10 @@ export function parseParams(url) {
     border: validateHexColor(p.get('border')),
     borderWidth: clampInt(p.get('borderWidth'), 0, 10, null),
     rx: clampInt(p.get('rx'), 0, 20, null),
-    cellRx: clampInt(p.get('cellRx'), 0, 10, 2),
+    // Leave the shared default unset so each renderer can choose the shape
+    // that fits its composition. The standalone calendar keeps its historic
+    // rounded default; the profile surface uses square cells by default.
+    cellRx: clampInt(p.get('cellRx'), 0, 10, null),
     px: clampInt(p.get('px'), 0, 50, null),
     py: clampInt(p.get('py'), 0, 50, null),
 
@@ -145,6 +148,12 @@ export function parseParams(url) {
     limit: clampInt(p.get('limit'), 1, 20, null),
     width: clampInt(p.get('width'), 200, 800, null),
     height: clampInt(p.get('height'), 8, 24, null),
+    profileWidth: clampInt(p.get('profileWidth'), 560, 1200, null),
+    profileGap: clampInt(p.get('profileGap'), 0, 80, null),
+    profilePadding: clampInt(p.get('profilePadding'), 0, 50, null),
+    profileWindow: clampInt(p.get('profileWindow'), 1, 12, null),
+    profileCommitLimit: clampInt(p.get('profileCommitLimit'), 1, 5, null),
+    profileSources: p.get('profileSources') !== '0' && p.get('profileSources') !== 'false',
     color1: validateHexColor(p.get('color1')),
     color2: validateHexColor(p.get('color2')),
     color3: validateHexColor(p.get('color3')),

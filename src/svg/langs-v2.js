@@ -129,13 +129,15 @@ export function generateLangsBarV2(langsObject, opts = {}, profile = {}) {
     const showTable = opts.table !== false;
     const innerW = opts.width || 300;
     const rowH = 20;
-    const headerH = 18;
+    // Keep a section heading attached to its own table. The separation
+    // belongs after the table, before the next section heading.
+    const headerH = 12;
     const pctW = 36;
     const halfW = innerW / 2;
     const langW = halfW - pctW;
     const pctX = langW + (pctW / 2);
     const gap = showBar && showTable ? 8 : 0;
-    const sectionGap = 10;
+    const sectionGap = 18;
     const sectionLayout = {
         innerW, langW, halfW, pctX, rowH, headerH,
         cellPad: 7, dotR: 3, tableBorderColor, tableBorderOpacity, totalBytes,

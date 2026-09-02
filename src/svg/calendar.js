@@ -65,6 +65,14 @@ export function generateCalendar(calendarGrid, opts = {}) {
         const yearEnd = new Date(year, 11, 31, 23, 59, 59, 999);
         winEnd = year === now.getFullYear() ? now : yearEnd;
         filterToRange();
+    } else if (opts.trailingWindow && opts.window) {
+        // Composite/profile layouts want a trailing window: show the last N
+        // complete/current months. The regular window mode remains centred
+        // around today for backwards compatibility with existing embeds.
+        const now = new Date();
+        winStart = new Date(now.getFullYear(), now.getMonth() - (opts.window - 1), 1);
+        winEnd = now;
+        filterToRange();
     } else if (opts.window) {
         const now = new Date();
         const half = Math.floor(opts.window / 2);
