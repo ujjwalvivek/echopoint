@@ -318,6 +318,12 @@ export const CONFIG = {
                 tracked: true,
                 private: true,
             },
+            {
+                alias: "kanban.pwsh",
+                owner: "ujjwalvivek",
+                name: "kanban.pwsh",
+                tracked: true,
+            },
         ],
     },
     npm: [
