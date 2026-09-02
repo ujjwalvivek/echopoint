@@ -2,12 +2,14 @@ import { generateBadge } from './svg/badges.js';
 import { generateCalendar } from './svg/calendar.js';
 import { generateStreakBadge } from './svg/streak.js';
 import { generateLangsBar } from './svg/langs.js';
+import { generateLangsBarV2 } from './svg/langs-v2.js';
 import { generateCommitsList } from './svg/commits.js';
 import { generateReleasesList } from './svg/releases.js';
 import { generateProjectCard } from './svg/project.js';
 import { parseParams, ICONS, errorSvg } from './svg/params.js';
 import { SOURCES, SOURCE_SCHEMA_VERSION, githubHeaders } from './sources.js';
 import { allTimeCalendar } from './contributions.js';
+import { languageDisplayOrder } from './language-display.js';
 import { CONFIG, getStatusChecks, getTrackedGitHubRepos, isPrivateGitHubRepo, publicConfig, resolveGitHubRepo, resolvePyPiPackage, resolveStatusCheck } from './config.js';
 export { ClickerDO } from './clicker.js';
 
@@ -626,6 +628,27 @@ async function handleFetch(request, env, ctx) {
         return jsonResponse(data, 200, privateRepo ? { 'Cache-Control': 'private, no-store' } : {});
     }
 
+    if (path === '/v1/langv2' || path === '/v1/langs2') {
+        const rawRepo = url.searchParams.get('repo');
+        const data = await aggregateLanguages(env, rawRepo, request);
+        if (data.error) return jsonResponse(data, 401, { 'Cache-Control': 'private, no-store' });
+
+        // Preserve exact byte values; only insertion order is curated for
+        // clients that display JSON object entries in order.
+        const ordered = Object.fromEntries(
+            languageDisplayOrder(data, CONFIG.languageDisplay).map((name) => [name, data[name]]),
+        );
+        let privateRepo = false;
+        if (rawRepo) {
+            const repo = resolveGitHubRepo(rawRepo, CONFIG);
+            if (repo) {
+                const repoData = await cachedKvGet(env.echopoint_kv, `github:${repo.alias}:repo`, 'json');
+                privateRepo = isPrivateGitHubRepo(repo) || repoData?.private === true;
+            }
+        }
+        return jsonResponse(ordered, 200, privateRepo ? { 'Cache-Control': 'private, no-store' } : {});
+    }
+
     if (path === '/v1/icons') {
         return jsonResponse(ICONS, 200, { 'Cache-Control': 'public, max-age=86400' });
     }
@@ -805,6 +828,12 @@ async function handleFetch(request, env, ctx) {
             const agg = await aggregateLanguages(env, opts.repo, request);
             if (agg.error) return renderSvg(errorSvg(agg.error));
             return renderSvg(generateLangsBar(agg, opts));
+        }
+
+        if (route === 'langv2' || route === 'langs2') {
+            const agg = await aggregateLanguages(env, opts.repo, request);
+            if (agg.error) return renderSvg(errorSvg(agg.error));
+            return renderSvg(generateLangsBarV2(agg, opts, CONFIG.languageDisplay));
         }
 
         if (route === 'project') {
