@@ -219,6 +219,7 @@ export function initDocsData(ICONS) {
                             <tr><td><code>/svg/calendar</code></td><td><code>ytd</code>, <code>year</code>, <code>window</code>, or <code>all</code> optional</td><td><code>github:{owner}:summary</code></td></tr>
                             <tr><td><code>/svg/status</code></td><td><code>target</code> optional</td><td><code>status:{alias}</code></td></tr>
                             <tr><td><code>/svg/langs</code></td><td><code>repo</code> optional</td><td><code>github:{alias}:langs</code></td></tr>
+                            <tr><td><code>/svg/langv2</code></td><td><code>repo</code> optional</td><td>Same cached language data as <code>/svg/langs</code>, split into Languages, Frameworks, and Esolangs sections.</td></tr>
                             <tr><td><code>/svg/commits</code></td><td><code>repo</code> optional</td><td><code>github:{alias}:commits</code></td></tr>
                             <tr><td><code>/svg/releases</code></td><td><code>repo</code> optional</td><td><code>github:{alias}:releases</code></td></tr>
                             <tr><td><code>/svg/project</code></td><td><code>repo</code></td><td><code>github:{alias}:repo</code>, <code>:langs</code>, <code>:commits</code>, <code>:commit_count</code></td></tr>
@@ -242,7 +243,7 @@ export function initDocsData(ICONS) {
                             <tr><td><code>bg</code>, <code>badgeColor</code>, <code>textColor</code></td><td>Badge colors. Use hex without <code>#</code> in URLs.</td></tr>
                             <tr><td><code>rx</code>, <code>px</code>, <code>py</code></td><td>Radius and padding.</td></tr>
                             <tr><td><code>limit</code>, <code>width</code>, <code>height</code></td><td>Route-specific sizing controls.</td></tr>
-                            <tr><td><code>responsive=true</code></td><td>Use fluid SVG dimensions where supported. Currently: <code>/svg/calendar</code>, <code>/svg/langs</code>, <code>/svg/commits</code>.</td></tr>
+                            <tr><td><code>responsive=true</code></td><td>Use fluid SVG dimensions where supported. Currently: <code>/svg/calendar</code>, <code>/svg/langs</code>, <code>/svg/langv2</code>, <code>/svg/commits</code>.</td></tr>
                             <tr><td><code>ytd=1</code>, <code>year=YYYY</code>, <code>window=N</code>, <code>all=1</code></td><td>Calendar period controls. The default is the current year; full history is opt-in because it is too dense for a small badge.</td></tr>
                         </tbody>
                     </table>
@@ -268,7 +269,8 @@ export function initDocsData(ICONS) {
                             <tr><td><code>/v1/store/:key</code></td><td>GET</td><td>Direct active-source read; private repository keys require <code>Authorization</code>.</td></tr>
                             <tr><td><code>/v1/status</code></td><td>GET</td><td>All configured status snapshots.</td></tr>
                             <tr><td><code>/v1/status/:alias</code></td><td>GET</td><td>One configured status snapshot.</td></tr>
-                            <tr><td><code>/v1/langs</code></td><td>GET</td><td>Public language aggregate, including sanitized private totals; a private <code>?repo=</code> requires auth.</td></tr>
+                            <tr><td><code>/v1/langs</code></td><td>GET</td><td>Raw public language aggregate, including sanitized private totals; a private <code>?repo=</code> requires auth.</td></tr>
+                            <tr><td><code>/v1/langv2</code></td><td>GET</td><td>Presentation-ranked language aggregate with raw byte values preserved; private <code>?repo=</code> still requires auth.</td></tr>
                             <tr><td><code>/v1/refresh</code></td><td>POST</td><td>Authenticated incremental refresh; processes only new, changed, or due sources. Use <code>scope=source&amp;key=...</code> for one configured non-GitHub source.</td></tr>
                             <tr><td><code>/v1/github/webhook</code></td><td>POST</td><td>Authenticated GitHub webhook that refreshes affected sources.</td></tr>
                             <tr><td><code>/v1/health</code></td><td>GET</td><td>Service status and last update timestamp.</td></tr>

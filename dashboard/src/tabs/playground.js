@@ -120,6 +120,13 @@ const endpointSchemas = {
         monochrome: 'boolean',
         textColor: 'color', pctColor: 'color', ...sharedLayoutBase
     },
+    '/svg/langv2': {
+        repo: 'repo', limit: 'number', width: 'number', height: 'number',
+        bar: 'boolean', table: 'boolean', responsive: 'boolean',
+        color1: 'color', color2: 'color', color3: 'color', color4: 'color', color5: 'color', color6: 'color',
+        monochrome: 'boolean',
+        textColor: 'color', pctColor: 'color', ...sharedLayoutBase
+    },
     '/svg/commits': { repo: 'repo', limit: 'number', width: 'number', responsive: 'boolean', textColor: 'color', ...sharedLayoutBase, ...sharedColorBase },
     '/svg/status': { target: 'statusTarget', logo: 'select', ...sharedBadgeLayout },
     '/svg/project': {
@@ -205,7 +212,7 @@ function defaultParamsForEndpoint(endpoint) {
         ...(endpoint.startsWith('/svg/badges/') || endpoint === '/svg/status' ? monoBadgeDefaults : {}),
         ...(endpoint === '/svg/streak' ? monoCardDefaults : {}),
         ...(endpoint === '/svg/commits' ? monoCommitDefaults : {}),
-        ...(endpoint === '/svg/langs' ? monoLangDefaults : {}),
+        ...(endpoint === '/svg/langs' || endpoint === '/svg/langv2' ? monoLangDefaults : {}),
         ...(endpoint === '/svg/calendar' ? monoCalendarDefaults : {}),
         ...(endpoint === '/svg/project' ? monoProjectDefaults : {}),
         ...(endpointDefaults[endpoint] || {}),
@@ -484,6 +491,7 @@ export function renderPlayground(mountPoint, baseUrl) {
                     <option value="/svg/streak">Streak Card</option>
                     <option value="/svg/calendar">Calendar Heatmap</option>
                     <option value="/svg/langs">Top Languages Bar</option>
+                    <option value="/svg/langv2">Top Languages Bar V2</option>
                     <option value="/svg/commits">Recent Commits</option>
                     <option value="/svg/project">Project Card</option>
                 </select>
