@@ -98,6 +98,27 @@ The corresponding version badge is:
 ![PyPI](https://echopoint.ujjwalvivek.com/svg/badges/pypi?package=echohub)
 ```
 
+### Language display V2
+
+`/v1/langs` and `/svg/langs` remain raw byte-ranked language data. The parallel `/v1/langv2` and `/svg/langv2` routes apply the presentation-only `languageDisplay` profile from `src/config.js`. The SVG route displays three sections: Languages (including HTML and CSS), Frameworks, and Esolangs. The JSON route returns the same raw totals in that presentation order. Byte totals and percentages still use all collected language data.
+
+```js
+languageDisplay: {
+    primary: ["Rust", "TypeScript", "JavaScript", "Go"],
+    frameworks: ["Astro", "Svelte", "Vue", "React", "Angular"],
+    esolangs: ["Brainfuck"],
+    limit: 6,
+}
+```
+
+`limit` applies independently to each section. Framework and esolang names are matched against the language keys returned by GitHub; add a key to the corresponding list when a new syntax appears in the collected data.
+
+Use `langv2` to evaluate the curated view without changing the original language endpoint:
+
+```markdown
+![Languages V2](https://echopoint.ujjwalvivek.com/svg/langv2?limit=6)
+```
+
 ### Secrets
 
 `GITHUB_TOKEN` needs account read access (`read:user`) and access to the private repositories being collected. `REFRESH_TOKEN` protects manual refreshes and is required by `/v1/refresh`. `DATA_TOKEN` is optional and adds a dedicated token for private data reads; either data token or refresh token is accepted there. `GITHUB_WEBHOOK_SECRET` is required only when using the GitHub webhook endpoint.
