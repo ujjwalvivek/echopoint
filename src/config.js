@@ -159,12 +159,14 @@ export const CONFIG = {
                 owner: "ujjwalvivek",
                 name: "woodpecker",
                 tracked: true,
+                private: true,
             },
             {
                 alias: "cutubagi",
                 owner: "ujjwalvivek",
                 name: "cutubagi",
                 tracked: true,
+                private: true,
             },
             {
                 alias: "pixess",
@@ -262,6 +264,60 @@ export const CONFIG = {
                 name: "releasegen",
                 tracked: true,
             },
+            {
+                alias: "rnd",
+                owner: "ujjwalvivek",
+                name: "rnd",
+                tracked: true,
+                private: true,
+            },
+            {
+                alias: "bunchoftools",
+                owner: "ujjwalvivek",
+                name: "bunchoftools",
+                tracked: true,
+            },
+            {
+                alias: "doomsector",
+                owner: "ujjwalvivek",
+                name: "doomsector",
+                tracked: true,
+                private: true,
+            },
+            {
+                alias: "marslander",
+                owner: "ujjwalvivek",
+                name: "marslander",
+                tracked: true,
+                private: true,
+            },
+            {
+                alias: "bunui",
+                owner: "ujjwalvivek",
+                name: "bunui",
+                tracked: true,
+                private: true,
+            },
+            {
+                alias: "homestack",
+                owner: "ujjwalvivek",
+                name: "homestack",
+                tracked: true,
+                private: true,
+            },
+            {
+                alias: "homestack-configs",
+                owner: "ujjwalvivek",
+                name: "homestack-configs",
+                tracked: true,
+            },
+            {
+                alias: "resume",
+                owner: "ujjwalvivek",
+                name: "resume",
+                tracked: true,
+                private: true,
+            },
         ],
     },
     npm: [
@@ -283,6 +339,10 @@ export const CONFIG = {
             namespace: "ujjwalvivek",
             repository: "synclippy",
         },
+    ],
+    pypi: [
+        { alias: "echohub", package: "echohub" },
+        { alias: "pysitegen", package: "pysitegen" },
     ],
     status: [
         {
@@ -308,6 +368,16 @@ export const CONFIG = {
 
 export function getTrackedGitHubRepos(config = CONFIG) {
     return config.github.repos.filter((repo) => repo.tracked !== false);
+}
+
+export function isPrivateGitHubRepo(repo) {
+    return Boolean(
+        repo?.private === true ||
+        repo?.public === false ||
+        repo?.expose === false ||
+        repo?.visibility === "private" ||
+        repo?.visibility === "internal"
+    );
 }
 
 export function resolveGitHubRepo(rawRepo, config = CONFIG) {
@@ -341,18 +411,32 @@ export function resolveStatusCheck(rawTarget, config = CONFIG) {
     return checks.find((check) => value === check.alias) || null;
 }
 
+export function resolvePyPiPackage(rawPackage, config = CONFIG) {
+    if (!rawPackage || typeof rawPackage !== "string") return null;
+
+    const value = rawPackage.trim();
+    if (!value) return null;
+
+    return (config.pypi || []).find(
+        (pkg) => value === pkg.alias || value === pkg.package,
+    ) || null;
+}
+
 export function publicConfig(config = CONFIG) {
     return {
         tenant: config.tenant,
         github: {
             owner: config.github.owner,
             startYear: config.github.startYear,
-            repos: config.github.repos.map((repo) => ({
-                alias: repo.alias,
-                owner: repo.owner,
-                name: repo.name,
-                tracked: repo.tracked !== false,
-            })),
+            repos: config.github.repos.map((repo) => {
+                const privateRepo = isPrivateGitHubRepo(repo);
+                return {
+                    alias: repo.alias,
+                    ...(privateRepo ? {} : { owner: repo.owner, name: repo.name }),
+                    tracked: repo.tracked !== false,
+                    private: privateRepo,
+                };
+            }),
         },
         npm: config.npm.map((pkg) => ({
             alias: pkg.alias,
@@ -366,6 +450,10 @@ export function publicConfig(config = CONFIG) {
             alias: image.alias,
             namespace: image.namespace,
             repository: image.repository,
+        })),
+        pypi: (config.pypi || []).map((pkg) => ({
+            alias: pkg.alias,
+            package: pkg.package,
         })),
         status: getStatusChecks(config).map((check) => ({
             alias: check.alias,
