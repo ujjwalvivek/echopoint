@@ -6,6 +6,7 @@ import { generateLangsBarV2 } from './svg/langs-v2.js';
 import { generateCommitsList } from './svg/commits.js';
 import { generateReleasesList } from './svg/releases.js';
 import { generateProjectCard } from './svg/project.js';
+import { generateProfileTelemetry } from './svg/profile.js';
 import { parseParams, ICONS, errorSvg } from './svg/params.js';
 import { SOURCES, SOURCE_SCHEMA_VERSION, githubHeaders } from './sources.js';
 import { allTimeCalendar } from './contributions.js';
@@ -259,6 +260,65 @@ function privateRepoAliases() {
             .filter((repo) => isPrivateGitHubRepo(repo))
             .map((repo) => repo.alias || repo.name)
     );
+}
+
+async function collectRecentCommits(env, rawRepo, request) {
+    const privateAccess = hasPrivateDataAccess(request, env);
+    const repos = resolveRepoList(rawRepo);
+    const entries = await Promise.all(repos.map(async (repo) => {
+        const repoData = await cachedKvGet(env.echopoint_kv, `github:${repo.alias}:repo`, 'json');
+        const privateRepo = isPrivateGitHubRepo(repo) || repoData?.private === true;
+        if (privateRepo && !privateAccess) return [];
+
+        const commits = await cachedKvGet(env.echopoint_kv, `github:${repo.alias}:commits`, 'json');
+        return Array.isArray(commits) ? commits : [];
+    }));
+
+    return entries.flat().sort((a, b) => new Date(b.date) - new Date(a.date));
+}
+
+async function collectProfileSources(env) {
+    const definitions = [
+        ...(CONFIG.npm || []).map((source) => ({
+            alias: source.alias,
+            kind: 'npm',
+            logo: 'npm',
+            key: `npm:${source.alias}`,
+        })),
+        ...(CONFIG.crates || []).map((source) => ({
+            alias: source.alias,
+            kind: 'rust',
+            logo: 'rust',
+            key: `crates:${source.alias}`,
+        })),
+        ...(CONFIG.docker || []).map((source) => ({
+            alias: source.alias,
+            kind: 'docker',
+            logo: 'docker',
+            key: `docker:${source.alias}:tags`,
+        })),
+        ...(CONFIG.pypi || []).map((source) => ({
+            alias: source.alias,
+            kind: 'python',
+            logo: 'python',
+            key: `pypi:${source.alias}`,
+        })),
+    ];
+
+    return Promise.all(definitions.map(async (source) => {
+        const data = await cachedKvGet(env.echopoint_kv, source.key, 'json');
+        let version = data?.version || data?.crate?.max_version || data?.info?.version;
+        if (source.key.startsWith('docker:')) {
+            const nonLatest = data?.results?.find((tag) => tag.name !== 'latest');
+            version = nonLatest?.name || null;
+        }
+        return {
+            alias: source.alias,
+            kind: source.kind,
+            logo: source.logo,
+            version: version ? `v${version}` : ':',
+        };
+    }));
 }
 
 function keyForRepoAlias(key, alias) {
@@ -836,6 +896,34 @@ async function handleFetch(request, env, ctx) {
             return renderSvg(generateLangsBarV2(agg, opts, CONFIG.languageDisplay));
         }
 
+        if (route === 'profile') {
+            const [summary, languages, commits, sources] = await Promise.all([
+                cachedKvGet(kv, SUMMARY_KEY, 'json'),
+                aggregateLanguages(env, opts.repo, request),
+                collectRecentCommits(env, opts.repo, request),
+                collectProfileSources(env),
+            ]);
+            if (languages.error) return renderSvg(errorSvg(languages.error));
+            const user = summary?.data?.user;
+            const calendarGrid = allTimeCalendar(user);
+            return renderSvg(generateProfileTelemetry({
+                calendarGrid,
+                commits,
+                languages,
+                sources,
+                metrics: {
+                    contributions: calendarGrid?.totalContributions || 0,
+                    commits: user?.allTime?.totalCommitContributions
+                        || user?.contributionsCollection?.totalCommitContributions
+                        || 0,
+                    pullRequests: user?.contributionsCollection?.totalPullRequestContributions || 0,
+                    issues: user?.allTime?.totalIssueContributions
+                        || user?.contributionsCollection?.totalIssueContributions
+                        || 0,
+                },
+            }, opts, CONFIG.languageDisplay));
+        }
+
         if (route === 'project') {
             const repo = resolveRequiredRepo(opts.repo);
             if (!repo) return renderSvg(generateProjectCard(null, {}, opts));
@@ -850,13 +938,7 @@ async function handleFetch(request, env, ctx) {
         }
 
         if (route === 'commits') {
-            const repos = resolveRepoList(opts.repo);
-            const all = [];
-            for (const repo of repos) {
-                const r = await cachedKvGet(kv, `github:${repo.alias}:commits`, 'json');
-                if (Array.isArray(r)) all.push(...r);
-            }
-            all.sort((a, b) => new Date(b.date) - new Date(a.date));
+            const all = await collectRecentCommits(env, opts.repo, request);
             const top3 = all.slice(0, opts.limit ?? 3);
             return renderSvg(generateCommitsList(top3, opts));
         }
