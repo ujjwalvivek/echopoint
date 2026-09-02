@@ -5,6 +5,9 @@ let currentParams = {};
 let debounceTimer = null;
 let apiBaseUrl = '';
 let CONFIG = null;
+let privateAccessToken = '';
+let previewObjectUrl = null;
+let previewRequestId = 0;
 const endpointParamCache = {};
 
 const sharedLayoutBase = {
@@ -60,6 +63,8 @@ const monoLangDefaults = {
 
 const monoCalendarDefaults = {
     ...monoCardDefaults,
+    ytd: 'true',
+    responsive: 'true',
     cellRx: '0',
     level0: '#151515',
     level1: '#3a3a3a',
@@ -93,6 +98,7 @@ const endpointSchemas = {
     '/svg/badges/stars': { repo: 'repo', ...sharedBadgeLayout, ...allLogos },
     '/svg/badges/release': { repo: 'repo', ...sharedBadgeLayout, ...allLogos },
     '/svg/badges/npm': { package: 'npmPackage', ...sharedBadgeLayout, ...allLogos },
+    '/svg/badges/pypi': { package: 'pypiPackage', ...sharedBadgeLayout, ...allLogos },
     '/svg/badges/cargo': { crate: 'crate', ...sharedBadgeLayout, ...allLogos },
     '/svg/badges/docker': { image: 'dockerImage', ...sharedBadgeLayout, ...allLogos },
     '/svg/badges/ghcr': { repo: 'repo', ...sharedBadgeLayout, ...allLogos },
@@ -104,7 +110,7 @@ const endpointSchemas = {
     '/svg/streak': { textColor: 'color', ...sharedLayoutBase },
     '/svg/calendar': {
         level0: 'color', level1: 'color', level2: 'color', level3: 'color', level4: 'color',
-        zeroColor: 'color', ytd: 'boolean', responsive: 'boolean', tight: 'boolean', window: 'number',
+        zeroColor: 'color', ytd: 'boolean', year: 'number', responsive: 'boolean', tight: 'boolean', window: 'number',
         textColor: 'color', ...sharedLayoutBase
     },
     '/svg/langs': {
@@ -130,6 +136,7 @@ const endpointDefaults = {
     '/svg/badges/stars': { repo: 'echopoint', logo: 'github' },
     '/svg/badges/release': { repo: 'echopoint', logo: 'github' },
     '/svg/badges/npm': { logo: 'npm' },
+    '/svg/badges/pypi': { logo: 'python' },
     '/svg/badges/cargo': { logo: 'rust' },
     '/svg/badges/docker': { logo: 'docker' },
     '/svg/badges/ghcr': { repo: 'echopoint', logo: 'github' },
@@ -161,6 +168,12 @@ function dynamicOptions(type) {
     }
     if (type === 'npmPackage') {
         return (CONFIG?.npm || []).map(pkg => ({
+            value: pkg.alias || pkg.package,
+            label: pkg.alias || pkg.package,
+        }));
+    }
+    if (type === 'pypiPackage') {
+        return (CONFIG?.pypi || []).map(pkg => ({
             value: pkg.alias || pkg.package,
             label: pkg.alias || pkg.package,
         }));
@@ -209,8 +222,17 @@ function defaultParamsForEndpoint(endpoint) {
 }
 
 function renderControls(schema, container) {
+    const accessControl = `
+        <div class="${styles.controlGroup}">
+            <label>Private access token</label>
+            <input type="password" class="${styles.input}" id="pgAccessToken" placeholder="DATA_TOKEN or REFRESH_TOKEN" autocomplete="off" spellcheck="false" />
+            <small class="${styles.helpText}">Used only in this tab session and never added to copied URLs.</small>
+        </div>
+    `;
+
     if (!schema) {
-        container.innerHTML = `<div style="padding: 1rem; color: var(--text-muted); font-size: 0.8rem; text-align: center;">No configurable parameters for this endpoint.</div>`;
+        container.innerHTML = accessControl + `<div style="padding: 1rem; color: var(--text-muted); font-size: 0.8rem; text-align: center;">No configurable parameters for this endpoint.</div>`;
+        bindPrivateAccessToken(container);
         return;
     }
 
@@ -227,7 +249,7 @@ function renderControls(schema, container) {
             `;
         } else if (type === 'text' || type === 'number') {
             html += `<input type="${type}" class="${styles.input}" data-key="${key}" value="${currentParams[key] || ''}" placeholder="e.g. value" />`;
-        } else if (type === 'repo' || type === 'npmPackage' || type === 'crate' || type === 'dockerImage' || type === 'statusTarget') {
+        } else if (type === 'repo' || type === 'npmPackage' || type === 'pypiPackage' || type === 'crate' || type === 'dockerImage' || type === 'statusTarget') {
             const options = dynamicOptions(type);
             if (options.length > 0) {
                 html += `<select class="${styles.input}" data-key="${key}">
@@ -252,9 +274,11 @@ function renderControls(schema, container) {
         }
         html += `</div>`;
     }
-    container.innerHTML = html;
+    container.innerHTML = accessControl + html;
 
-    container.querySelectorAll('input, select').forEach(el => {
+    bindPrivateAccessToken(container);
+
+    container.querySelectorAll('input[data-key], select[data-key]').forEach(el => {
         const updateParam = (e) => {
             const key = e.target.dataset.key;
             let val = e.target.value;
@@ -275,6 +299,17 @@ function renderControls(schema, container) {
     });
 }
 
+function bindPrivateAccessToken(container) {
+    const input = container.querySelector('#pgAccessToken');
+    if (!input) return;
+
+    input.value = privateAccessToken;
+    input.addEventListener('input', (event) => {
+        privateAccessToken = event.target.value.trim();
+        triggerUpdate();
+    });
+}
+
 function getQueryUrl() {
     if (!currentEndpoint) return '';
     const url = new URL(apiBaseUrl + currentEndpoint);
@@ -286,20 +321,60 @@ function getQueryUrl() {
     return url.toString();
 }
 
+function releasePreviewObjectUrl() {
+    if (!previewObjectUrl) return;
+    URL.revokeObjectURL(previewObjectUrl);
+    previewObjectUrl = null;
+}
+
 function triggerUpdate() {
     const overlay = document.getElementById('pgLoading');
     if (overlay) overlay.classList.add(styles.active);
 
     clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => {
+    const requestId = ++previewRequestId;
+    debounceTimer = setTimeout(async () => {
         const img = document.getElementById('pgPreviewImg');
         const url = getQueryUrl();
-        if (img && url) {
-            img.onload = () => overlay?.classList.remove(styles.active);
-            img.onerror = () => overlay?.classList.remove(styles.active);
-            img.src = url;
-        } else {
+        if (!img || !url) {
             overlay?.classList.remove(styles.active);
+            return;
+        }
+
+        const finish = () => overlay?.classList.remove(styles.active);
+        if (!privateAccessToken) {
+            releasePreviewObjectUrl();
+            img.onload = finish;
+            img.onerror = finish;
+            img.src = url;
+            return;
+        }
+
+        try {
+            const response = await fetch(url, {
+                headers: { Authorization: `Bearer ${privateAccessToken}` },
+            });
+            if (!response.ok) throw new Error(`Preview request failed (${response.status})`);
+
+            const blob = await response.blob();
+            if (requestId !== previewRequestId) return;
+
+            const nextObjectUrl = URL.createObjectURL(blob);
+            const previousObjectUrl = previewObjectUrl;
+            previewObjectUrl = nextObjectUrl;
+            img.onload = finish;
+            img.onerror = finish;
+            img.src = nextObjectUrl;
+            if (previousObjectUrl) URL.revokeObjectURL(previousObjectUrl);
+        } catch (_) {
+            if (requestId !== previewRequestId) return;
+            // The SVG route returns a useful authorization error card. Fall
+            // back to its normal URL when the authenticated fetch itself
+            // fails, so public previews continue to work as before.
+            releasePreviewObjectUrl();
+            img.onload = finish;
+            img.onerror = finish;
+            img.src = url;
         }
     }, 400);
 }
@@ -397,6 +472,7 @@ export function renderPlayground(mountPoint, baseUrl) {
                     <option value="/svg/badges/stars">Stars Badge</option>
                     <option value="/svg/badges/release">Release Badge</option>
                     <option value="/svg/badges/npm">npm Badge</option>
+                    <option value="/svg/badges/pypi">PyPI Badge</option>
                     <option value="/svg/badges/cargo">Crate Badge</option>
                     <option value="/svg/badges/docker">Docker Badge</option>
                     <option value="/svg/badges/ghcr">GHCR Badge</option>
