@@ -14,28 +14,33 @@ export function generateStreakBadge(calendarGrid, opts = {}) {
     const py = opts.py ?? 0;
     const accent = opts.accentColor || THEME.accent;
 
-    const days = [];
-    calendarGrid.weeks.forEach(w => w.contributionDays.forEach(d => days.push(d)));
-    days.reverse();
+    const chronoDays = [];
+    calendarGrid.weeks.forEach(w => (w.contributionDays || []).forEach(d => chronoDays.push(d)));
+    chronoDays.sort((a, b) => a.date.localeCompare(b.date));
 
+    const dayMap = new Map(chronoDays.map(day => [day.date, day]));
     const today = new Date().toISOString().split('T')[0];
-    let todayIndex = days.findIndex(d => d.date === today);
-    if (todayIndex === -1) todayIndex = 0;
+    const lastAvailableDate = chronoDays[chronoDays.length - 1]?.date || today;
+    let cursor = dayMap.has(today) ? today : lastAvailableDate;
+
+    // A zero-count square for today is not a broken streak yet: the day is
+    // still in progress. Start from yesterday in that case.
+    if ((dayMap.get(cursor)?.contributionCount || 0) === 0 && cursor === today) {
+        cursor = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    }
+    const streakEnd = cursor;
 
     let currentStreak = 0;
     let streakStart = '';
-    for (let i = todayIndex; i < days.length; i++) {
-        if (days[i].contributionCount > 0) {
-            currentStreak++;
-            streakStart = days[i].date;
-        } else if (i === todayIndex) {
-            continue; //* today might not be over
-        } else {
-            break;
-        }
+    while (cursor >= (calendarGrid.startDate || chronoDays[0]?.date || cursor)) {
+        const day = dayMap.get(cursor);
+        if (!day || day.contributionCount <= 0) break;
+        currentStreak++;
+        streakStart = cursor;
+        cursor = new Date(`${cursor}T00:00:00Z`).getTime() - 24 * 60 * 60 * 1000;
+        cursor = new Date(cursor).toISOString().split('T')[0];
     }
 
-    const chronoDays = [...days].reverse();
     let longest = 0;
     let run = 0;
     for (const d of chronoDays) {
@@ -48,6 +53,8 @@ export function generateStreakBadge(calendarGrid, opts = {}) {
     }
 
     const totalContributions = calendarGrid.totalContributions || chronoDays.reduce((s, d) => s + d.contributionCount, 0);
+    const rangeStart = calendarGrid.startDate || chronoDays[0]?.date;
+    const rangeEnd = calendarGrid.endDate || chronoDays[chronoDays.length - 1]?.date;
 
     const streakColor = currentStreak === 0 ? THEME.error : accent;
 
@@ -55,6 +62,22 @@ export function generateStreakBadge(calendarGrid, opts = {}) {
         if (!dateStr) return ':';
         const d = new Date(dateStr);
         return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    };
+
+    const currentDateLabel = currentStreak > 0
+        ? `${formatDate(streakStart)} - ${formatDate(streakEnd)}`
+        : 'No active streak';
+    const totalDateLabel = rangeStart && rangeEnd
+        ? `${formatDate(rangeStart)} - ${formatDate(rangeEnd)}`
+        : 'all available time';
+    const fitSubText = (value, maxWidth) => {
+        // The side columns are intentionally narrow. Compress only labels
+        // that are estimated to exceed their column so short status labels
+        // retain their normal letter spacing.
+        const estimatedWidth = value.length * 5.4;
+        return estimatedWidth > maxWidth
+            ? ` textLength="${maxWidth}" lengthAdjust="spacingAndGlyphs"`
+            : '';
     };
 
     const innerW = 430;
@@ -92,7 +115,7 @@ export function generateStreakBadge(calendarGrid, opts = {}) {
   ${fireIcon}
   <text x="${centerX}" y="${py + 53}" text-anchor="middle" class="num" fill="${streakColor}">${currentStreak}</text>
   <text x="${centerX}" y="${py + 72}" text-anchor="middle" class="lbl">Current Streak</text>
-  <text x="${centerX}" y="${py + 90}" text-anchor="middle" class="sub">${currentStreak > 0 ? formatDate(streakStart) + ' - today' : 'No active streak'}</text>
+  <text x="${centerX}" y="${py + 90}" text-anchor="middle" class="sub"${fitSubText(currentDateLabel, centerW - 16)}>${currentDateLabel}</text>
 
   <!-- Vertical separators -->
   <line x1="${sep1X}" y1="${py + 14}" x2="${sep1X}" y2="${py + innerH - 14}" class="sep"/>
@@ -101,7 +124,7 @@ export function generateStreakBadge(calendarGrid, opts = {}) {
   <!-- Left: Total Contributions -->
   <text x="${leftX}" y="${py + 57}" text-anchor="middle" class="snum" fill="${text}">${totalContributions.toLocaleString()}</text>
   <text x="${leftX}" y="${py + 76}" text-anchor="middle" class="lbl">Total</text>
-  <text x="${leftX}" y="${py + 92}" text-anchor="middle" class="sub">(365 days)</text>
+  <text x="${leftX}" y="${py + 92}" text-anchor="middle" class="sub"${fitSubText(totalDateLabel, sideW - 16)}>${totalDateLabel}</text>
 
   <!-- Right: Longest Streak -->
   <text x="${rightX}" y="${py + 57}" text-anchor="middle" class="snum" fill="${text}">${longest}</text>

@@ -161,6 +161,8 @@ export function parseParams(url) {
     level4: validateHexColor(p.get('level4')),
     zeroColor: validateHexColor(p.get('zeroColor')),
     ytd: p.get('ytd') === '1' || p.get('ytd') === 'true',
+    all: p.get('all') === '1' || p.get('all') === 'true',
+    year: clampInt(p.get('year'), 1970, 2100, null),
     responsive: p.get('responsive') === '1' || p.get('responsive') === 'true',
     tight: p.get('tight') === '1' || p.get('tight') === 'true',
     window: clampInt(p.get('window'), 1, 12, null),
