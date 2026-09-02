@@ -45,6 +45,7 @@ function buildSidebarHtml(store, config, status) {
     );
     const packages =
         (config?.npm || []).length +
+        (config?.pypi || []).length +
         (config?.crates || []).length +
         (config?.docker || []).length;
     const statusItems = Array.isArray(status?.checks)
@@ -56,6 +57,7 @@ function buildSidebarHtml(store, config, status) {
     const failures = Number(lastRun.failed || 0);
     const success = Number(lastRun.success || 0);
     const total = Number(lastRun.total || 0);
+    const due = Number(lastRun.due || 0);
 
     return `
         <div class="${styles.sidebarBlock}">
@@ -73,7 +75,8 @@ function buildSidebarHtml(store, config, status) {
             ${sidebarRow("Updated", relTime(updated))}
             ${sidebarRow("Sources", `${fmtCount(success)} / ${fmtCount(total)}`, failures > 0 ? "warn" : "ok")}
             ${sidebarRow("Failed", fmtCount(failures), failures > 0 ? "bad" : "")}
-            ${sidebarRow("Cursor", lastRun.next_cursor ?? ":")}
+            ${sidebarRow("Strategy", lastRun.strategy || ":")}
+            ${sidebarRow("Due", `${fmtCount(due)} / ${fmtCount(total)}`)}
             ${sidebarRow("Budget", `${fmtCount(lastRun.fetch_budget_used)} / ${fmtCount(lastRun.fetch_budget_limit)}`)}
         </div>
 
@@ -144,7 +147,7 @@ export function initDocsData(ICONS) {
                     <span class="${styles.path}">Base</span>
                 </div>
                 <pre class="${styles.codeBlock}"><strong>BASE_URL</strong> = https://echopoint.ujjwalvivek.com</pre>
-                <p>Refresh writes configured telemetry to KV. REST and SVG routes read KV only.</p>
+                <p>Refresh writes configured telemetry to KV. REST and SVG routes read KV only. The summary and streak use all available years from <code>startYear</code>; calendars default to the current year, with <code>year=YYYY</code> for historical years and <code>all=1</code> for explicit full history.</p>
             </div>
 
             <div class="${styles.endpoint}">
@@ -156,7 +159,8 @@ export function initDocsData(ICONS) {
                 <pre class="${styles.codeBlock}">![Streak](https://echopoint.ujjwalvivek.com/svg/streak)</pre>
                 <pre class="${styles.codeBlock}">![Status](https://echopoint.ujjwalvivek.com/svg/status?target=echopoint)</pre>
                 <pre class="${styles.codeBlock}">![Languages](https://echopoint.ujjwalvivek.com/svg/langs?repo=journey)</pre>
-                <pre class="${styles.codeBlock}">curl -X POST -H "Authorization: Bearer $TOKEN" https://echopoint.ujjwalvivek.com/v1/refresh</pre>
+                <pre class="${styles.codeBlock}">![PyPI](https://echopoint.ujjwalvivek.com/svg/badges/pypi?package=echohub)</pre>
+                <pre class="${styles.codeBlock}">curl -X POST -H "Authorization: Bearer $REFRESH_TOKEN" https://echopoint.ujjwalvivek.com/v1/refresh</pre>
             </div>
 
             <div class="${styles.endpoint}">
@@ -191,6 +195,7 @@ export function initDocsData(ICONS) {
                             <tr><td><code>/svg/badges/updated</code></td><td><code>repo</code></td><td><code>github</code></td><td><code>github:{alias}:repo</code></td></tr>
                             <tr><td><code>/svg/badges/ghcr</code></td><td><code>repo</code></td><td><code>github</code></td><td><code>github:{alias}:release</code></td></tr>
                             <tr><td><code>/svg/badges/npm</code></td><td><code>package</code></td><td><code>npm</code></td><td><code>npm:{alias}</code></td></tr>
+                            <tr><td><code>/svg/badges/pypi</code></td><td><code>package</code></td><td><code>python</code></td><td><code>pypi:{alias}</code></td></tr>
                             <tr><td><code>/svg/badges/cargo</code></td><td><code>crate</code></td><td><code>rust</code></td><td><code>crates:{alias}</code></td></tr>
                             <tr><td><code>/svg/badges/docker</code></td><td><code>image</code></td><td><code>docker</code></td><td><code>docker:{alias}:tags</code></td></tr>
                             <tr><td><code>/svg/badges/docs</code></td><td>-</td><td><code>docs</code></td><td>static</td></tr>
@@ -211,7 +216,7 @@ export function initDocsData(ICONS) {
                         <thead><tr><th>Route</th><th>Params</th><th>Data</th></tr></thead>
                         <tbody>
                             <tr><td><code>/svg/streak</code></td><td>-</td><td><code>github:{owner}:summary</code></td></tr>
-                            <tr><td><code>/svg/calendar</code></td><td>-</td><td><code>github:{owner}:summary</code></td></tr>
+                            <tr><td><code>/svg/calendar</code></td><td><code>ytd</code>, <code>year</code>, <code>window</code>, or <code>all</code> optional</td><td><code>github:{owner}:summary</code></td></tr>
                             <tr><td><code>/svg/status</code></td><td><code>target</code> optional</td><td><code>status:{alias}</code></td></tr>
                             <tr><td><code>/svg/langs</code></td><td><code>repo</code> optional</td><td><code>github:{alias}:langs</code></td></tr>
                             <tr><td><code>/svg/commits</code></td><td><code>repo</code> optional</td><td><code>github:{alias}:commits</code></td></tr>
@@ -238,6 +243,7 @@ export function initDocsData(ICONS) {
                             <tr><td><code>rx</code>, <code>px</code>, <code>py</code></td><td>Radius and padding.</td></tr>
                             <tr><td><code>limit</code>, <code>width</code>, <code>height</code></td><td>Route-specific sizing controls.</td></tr>
                             <tr><td><code>responsive=true</code></td><td>Use fluid SVG dimensions where supported. Currently: <code>/svg/calendar</code>, <code>/svg/langs</code>, <code>/svg/commits</code>.</td></tr>
+                            <tr><td><code>ytd=1</code>, <code>year=YYYY</code>, <code>window=N</code>, <code>all=1</code></td><td>Calendar period controls. The default is the current year; full history is opt-in because it is too dense for a small badge.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -258,16 +264,17 @@ export function initDocsData(ICONS) {
                         <thead><tr><th>Route</th><th>Method</th><th>Use</th></tr></thead>
                         <tbody>
                             <tr><td><code>/v1/config</code></td><td>GET</td><td>Public config: owner, repos, packages, refresh settings.</td></tr>
-                            <tr><td><code>/v1/store</code></td><td>GET</td><td>KV dump for dashboard/debugging.</td></tr>
-                            <tr><td><code>/v1/store/:key</code></td><td>GET</td><td>Direct KV read.</td></tr>
+                            <tr><td><code>/v1/store</code></td><td>GET</td><td>Public/sanitized active-source dump; private repository records are omitted.</td></tr>
+                            <tr><td><code>/v1/store/:key</code></td><td>GET</td><td>Direct active-source read; private repository keys require <code>Authorization</code>.</td></tr>
                             <tr><td><code>/v1/status</code></td><td>GET</td><td>All configured status snapshots.</td></tr>
                             <tr><td><code>/v1/status/:alias</code></td><td>GET</td><td>One configured status snapshot.</td></tr>
-                            <tr><td><code>/v1/langs</code></td><td>GET</td><td>Aggregated cached language bytes.</td></tr>
-                            <tr><td><code>/v1/refresh</code></td><td>POST</td><td>Run one bounded refresh batch.</td></tr>
+                            <tr><td><code>/v1/langs</code></td><td>GET</td><td>Public language aggregate, including sanitized private totals; a private <code>?repo=</code> requires auth.</td></tr>
+                            <tr><td><code>/v1/refresh</code></td><td>POST</td><td>Authenticated incremental refresh; processes only new, changed, or due sources. Use <code>scope=source&amp;key=...</code> for one configured non-GitHub source.</td></tr>
+                            <tr><td><code>/v1/github/webhook</code></td><td>POST</td><td>Authenticated GitHub webhook that refreshes affected sources.</td></tr>
                             <tr><td><code>/v1/health</code></td><td>GET</td><td>Service status and last update timestamp.</td></tr>
                             <tr><td><code>/v1/icons</code></td><td>GET</td><td>Available SVG icon path data.</td></tr>
                             <tr><td><code>/v1/click</code></td><td>GET / POST / WS</td><td>Durable Object click counter.</td></tr>
-                            <tr><td><code>/v1/github/contents</code></td><td>GET</td><td>GitHub contents proxy for configured repos only.</td></tr>
+                            <tr><td><code>/v1/github/contents</code></td><td>GET</td><td>Authenticated GitHub contents proxy for configured repos only.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -278,19 +285,42 @@ export function initDocsData(ICONS) {
                     <span class="${styles.method} ${styles.post}">OPS</span>
                     <span class="${styles.path}">Refresh</span>
                 </div>
-                <pre class="${styles.codeBlock}">curl -X POST -H "Authorization: Bearer $TOKEN" https://echopoint.ujjwalvivek.com/v1/refresh</pre>
+                <pre class="${styles.codeBlock}">curl -X POST -H "Authorization: Bearer $REFRESH_TOKEN" https://echopoint.ujjwalvivek.com/v1/refresh</pre>
+                <pre class="${styles.codeBlock}">curl -X POST -H "Authorization: Bearer $REFRESH_TOKEN" "https://echopoint.ujjwalvivek.com/v1/refresh?scope=summary"</pre>
+                <pre class="${styles.codeBlock}">curl -X POST -H "Authorization: Bearer $REFRESH_TOKEN" "https://echopoint.ujjwalvivek.com/v1/refresh?scope=repo&amp;repo=journey"</pre>
+                <pre class="${styles.codeBlock}">curl -X POST -H "Authorization: Bearer $REFRESH_TOKEN" "https://echopoint.ujjwalvivek.com/v1/refresh?scope=source&amp;key=npm%3Ajourney-engine"</pre>
                 <div class="${styles.tableWrapper}">
                     <table>
                         <thead><tr><th>Field</th><th>Meaning</th></tr></thead>
                         <tbody>
-                            <tr><td><code>processed</code></td><td>Sources attempted in this batch.</td></tr>
-                            <tr><td><code>success</code></td><td>KV writes completed.</td></tr>
+                            <tr><td><code>strategy</code></td><td>Always <code>incremental</code>; the old global cursor is no longer used.</td></tr>
+                            <tr><td><code>due</code></td><td>Sources eligible because they are new, changed, or past their refresh interval.</td></tr>
+                            <tr><td><code>processed</code></td><td>Sources attempted in this bounded batch.</td></tr>
+                            <tr><td><code>success</code></td><td>Sources completed successfully, including conditional <code>304 Not Modified</code> responses.</td></tr>
                             <tr><td><code>failed</code></td><td>Failed upstream requests or transforms.</td></tr>
-                            <tr><td><code>next_cursor</code></td><td>Start point for the next batch.</td></tr>
+                            <tr><td><code>changed</code></td><td>Successful sources that wrote new KV data.</td></tr>
+                            <tr><td><code>not_modified</code></td><td>Successful conditional requests that avoided a KV data write.</td></tr>
+                            <tr><td><code>budget_skipped</code></td><td>Due sources left for a later run because the Worker subrequest budget was full.</td></tr>
                             <tr><td><code>failures</code></td><td>Failed keys with status/error when present.</td></tr>
                         </tbody>
                     </table>
                 </div>
+            </div>
+
+            <div class="${styles.endpoint}">
+                <div class="${styles.endpointHeader}">
+                    <span class="${styles.method} ${styles.ws}">PRIVATE</span>
+                    <span class="${styles.path}">Contributions, Languages, and Access</span>
+                </div>
+                <ul>
+                    <li>Set <code>GITHUB_TOKEN</code> to a token that can read the account and the private repositories. Enable GitHub's private-contribution display setting if those contributions should appear in the public contribution graph.</li>
+                    <li>The all-time summary merges yearly calendars from <code>github.startYear</code> through today. Streaks scan that complete calendar, not a fixed 365-day window. Calendar badges default to the current year; use <code>year=YYYY</code> to browse a specific year or <code>all=1</code> for full history.</li>
+                    <li>Private language totals are discovered through GitHub GraphQL and stored without repository names. They are included in <code>/v1/langs</code> and the dashboard aggregate.</li>
+                    <li>To track a named private repository, add <code>private: true</code> to its configured repo entry. Its raw source keys and repo-specific SVGs require <code>DATA_TOKEN</code> or <code>REFRESH_TOKEN</code>.</li>
+                    <li>The playground accepts a private access token in memory for private previews such as <code>repo=woodpecker</code>. It is not placed in copied URLs; external clients must send it as an <code>Authorization: Bearer</code> header.</li>
+                    <li>Use <code>GITHUB_WEBHOOK_SECRET</code> for <code>/v1/github/webhook</code>. GitHub push/release events refresh the affected sources after signature verification.</li>
+                </ul>
+                <pre class="${styles.codeBlock}">{ alias: "internal-tool", owner: "ujjwalvivek", name: "internal-tool", tracked: true, private: true }</pre>
             </div>
             `,
         },
@@ -316,7 +346,10 @@ export function initDocsData(ICONS) {
                 </div>
                 <ul>
                     <li>Cron runs every 2 hours.</li>
-                    <li>Refresh is cursor-based and may take multiple runs for large configs.</li>
+                    <li>Refresh is incremental: a config/code change invalidates only the affected source signatures, while each source has its own refresh interval.</li>
+                    <li>The first deployment or an explicit <code>scope=all</code> still uses bounded batches because Cloudflare Workers Free limits external subrequests per invocation. Normal refreshes do not re-fetch the entire source list.</li>
+                    <li>GitHub webhooks can refresh important repo sources immediately; the two-hour cron remains the backstop.</li>
+                    <li><code>npm run deploy:refresh</code> deploys the current config, detects newly added or changed tracked repositories, and runs one bounded refresh for newly added or invalidated registry sources such as npm, PyPI, Crates.io, and Docker. Pass a repo alias to force one repo, or use <code>--summary</code> for the global aggregate.</li>
                     <li>SVG routes do not fetch upstream APIs during render.</li>
                     <li>Pending dashboard cards usually mean the matching KV key has not been written yet.</li>
                 </ul>
@@ -326,7 +359,7 @@ export function initDocsData(ICONS) {
                 </div>
                 <ul>
                     <li>Existing SVG paths remain valid.</li>
-                    <li>Legacy KV key names remain active: <code>github:{alias}:*</code>, <code>npm:{alias}</code>, <code>crates:{alias}</code>, <code>docker:{alias}:tags</code>.</li>
+                    <li>Legacy KV key names remain active: <code>github:{alias}:*</code>, <code>npm:{alias}</code>, <code>pypi:{alias}</code>, <code>crates:{alias}</code>, <code>docker:{alias}:tags</code>.</li>
                     <li>Explicit <code>logo=</code> wins over route defaults.</li>
                     <li><code>logo=none</code> disables default icons.</li>
                 </ul>
