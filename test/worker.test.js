@@ -282,6 +282,52 @@ test('generic targeted source refresh handles registry sources', async () => {
     }
 });
 
+test('profile SVG keeps private commit details out of the public surface', async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const kv = new MemoryKV({
+        'github:ujjwalvivek:summary': JSON.stringify({
+            data: {
+                user: {
+                    allTime: {
+                        totalContributions: 12,
+                        weeks: [{ contributionDays: [{ date: today, contributionCount: 2 }] }],
+                        startDate: today,
+                        endDate: today,
+                    },
+                    contributionsCollection: {
+                        totalCommitContributions: 8,
+                        totalPullRequestContributions: 3,
+                        totalIssueContributions: 1,
+                    },
+                },
+            },
+        }),
+        'github:journey:repo': JSON.stringify({ private: false }),
+        'github:journey:commits': JSON.stringify([
+            { date: today, message: 'public commit', sha: 'public123', additions: 2, deletions: 0 },
+        ]),
+        'github:woodpecker:repo': JSON.stringify({ private: true }),
+        'github:woodpecker:commits': JSON.stringify([
+            { date: today, message: 'private commit should stay private', sha: 'secret12' },
+        ]),
+        'github:journey:langs': JSON.stringify({ Rust: 100 }),
+        'github:private:ujjwalvivek:langs': JSON.stringify({ languages: { Go: 20 } }),
+    });
+
+    const response = await Worker.fetch(
+        new Request('https://example.test/svg/profile?profileWidth=860&profileCommitLimit=2'),
+        env(kv),
+        {},
+    );
+    const svg = await response.text();
+
+    assert.equal(response.status, 200);
+    assert.match(svg, /<title>Profile telemetry<\/title>/);
+    assert.match(svg, /public commit/);
+    assert.doesNotMatch(svg, /private commit should stay private/);
+    assert.match(svg, />12<\/text>/);
+});
+
 test('first incremental run adopts legacy KV values instead of re-fetching them all', async () => {
     const entries = { '_meta:last_updated': new Date().toISOString() };
     for (const source of SOURCES) {
