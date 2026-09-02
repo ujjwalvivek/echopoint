@@ -98,6 +98,14 @@ The corresponding version badge is:
 ![PyPI](https://echopoint.ujjwalvivek.com/svg/badges/pypi?package=echohub)
 ```
 
+### Composite profile telemetry
+
+`/svg/profile` is a purpose-built profile surface, not a collage of the individual cards. It reads the same cached data, gives the all-time streak the primary visual position, keeps the calendar wide and shallow, and includes configured registry sources as non-clickable badges. Private repository commit details stay out of an unauthenticated profile surface. The profile palette remains URL-controlled, so an embed can carry its own visual system without changing EchoPoint's defaults.
+
+```markdown
+![Profile telemetry](https://echopoint.ujjwalvivek.com/svg/profile?profileWidth=860&profileGap=18&profilePadding=20&profileWindow=8&profileCommitLimit=3&profileSources=true&limit=13)
+```
+
 ### Language display V2
 
 `/v1/langs` and `/svg/langs` remain raw byte-ranked language data. The parallel `/v1/langv2` and `/svg/langv2` routes apply the presentation-only `languageDisplay` profile from `src/config.js`. The SVG route displays three sections: Languages (including HTML and CSS), Frameworks, and Esolangs. The JSON route returns the same raw totals in that presentation order. Byte totals and percentages still use all collected language data.
