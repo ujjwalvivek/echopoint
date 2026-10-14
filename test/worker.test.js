@@ -390,3 +390,65 @@ test('first incremental run adopts legacy KV values instead of re-fetching them 
         globalThis.fetch = originalFetch;
     }
 });
+
+test('unchanged weighted sources only spend one fetch of budget', async () => {
+    const kv = new MemoryKV();
+    const workerEnv = env(kv);
+    const originalFetch = globalThis.fetch;
+    let commitsChanged = true;
+    const requested = [];
+
+    globalThis.fetch = async (url, options = {}) => {
+        requested.push(String(url));
+        const headers = options.headers || {};
+        const isCommitList = String(url).includes('/commits?per_page=5');
+        if (headers['If-None-Match'] && !(isCommitList && commitsChanged)) {
+            return new Response(null, { status: 304 });
+        }
+        if (isCommitList) {
+            return new Response(JSON.stringify([{
+                sha: 'abc',
+                url: 'https://api.github.com/repos/ujjwalvivek/portfolio/commits/abc',
+                html_url: 'https://github.com/ujjwalvivek/portfolio/commit/abc',
+                commit: { message: 'msg', author: { name: 'me', date: '2026-10-01T00:00:00Z' } },
+            }]), { status: 200, headers: { ETag: `"commits-${requested.length}"` } });
+        }
+        if (String(url).endsWith('/commits/abc')) {
+            return new Response(JSON.stringify({ stats: { additions: 3, deletions: 1 } }), { status: 200 });
+        }
+        return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { ETag: '"v1"' } });
+    };
+
+    const refreshRepo = async () => {
+        const response = await Worker.fetch(
+            new Request('https://example.test/v1/refresh?scope=repo&repo=portfolio', {
+                method: 'POST',
+                headers: { Authorization: 'Bearer refresh-token' },
+            }),
+            workerEnv,
+            {},
+        );
+        assert.equal(response.status, 200);
+        return response.json();
+    };
+
+    try {
+        const first = await refreshRepo();
+        const sourceCount = first.processed;
+        const commitCost = Math.max(...SOURCES.map((source) => Number(source.cost || 1)));
+        assert.equal(first.fetch_budget_used, sourceCount + commitCost - 1, 'first fetch reserves the full weight');
+
+        commitsChanged = false;
+        const unchanged = await refreshRepo();
+        assert.equal(unchanged.not_modified, sourceCount);
+        assert.equal(unchanged.fetch_budget_used, sourceCount, '304s cost one fetch each');
+
+        commitsChanged = true;
+        const changed = await refreshRepo();
+        assert.equal(changed.fetch_budget_used, sourceCount + commitCost - 1, 'a 200 pays for enrichment');
+        const commits = await kv.get('github:portfolio:commits', 'json');
+        assert.equal(commits[0].additions, 3);
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});

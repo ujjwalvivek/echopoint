@@ -15,7 +15,8 @@ const REFRESH = {
     repository: 12 * HOUR,
     release: 12 * HOUR,
     releases: DAY,
-    commits: 6 * HOUR,
+    // Push webhooks refresh commits immediately; polling is only a fallback.
+    commits: 3 * DAY,
     commitCount: DAY,
     contributors: 7 * DAY,
     tags: 7 * DAY,

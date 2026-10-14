@@ -24,6 +24,7 @@ bindings = [
 tag = "v1"
 new_sqlite_classes = ["ClickerDO"]
 
-# free KV tier = 1k writes/day
+# free KV tier = 1k writes/day. Hourly runs cost ~3 bookkeeping writes each
+# (~72/day) plus one write per source whose data actually changed.
 [triggers]
-crons = ["0 */2 * * *"]
+crons = ["0 * * * *"]

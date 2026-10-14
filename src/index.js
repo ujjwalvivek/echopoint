@@ -1057,7 +1057,12 @@ async function handleScheduled(env, options = {}) {
 
     for (const candidate of candidates) {
         const { source, meta, signature } = candidate;
-        const cost = sourceCost(source);
+        // A source with cached validators usually answers 304, which costs a
+        // single fetch. Reserve only that; the rest of a weighted source's cost
+        // (e.g. commit enrichment) is charged after a 200 actually arrives.
+        const fullCost = sourceCost(source);
+        const conditional = !candidate.dirty && Boolean(meta.etag || meta.lastModified);
+        const cost = conditional ? 1 : fullCost;
         if (budgetUsed + cost > REFRESH_FETCH_BUDGET) {
             budgetSkippedCount++;
             continue;
@@ -1189,6 +1194,19 @@ async function handleScheduled(env, options = {}) {
                 failures.push({ key: source.key, status: res.status });
                 state.sources[source.key] = nextMeta;
                 continue;
+            }
+
+            const deferredCost = fullCost - cost;
+            if (deferredCost > 0) {
+                if (budgetUsed + deferredCost > REFRESH_FETCH_BUDGET) {
+                    // Changed upstream, but its follow-up fetches no longer fit
+                    // this invocation. Keep the old value and validators so the
+                    // next pass sees a 200 again and does the full work.
+                    budgetSkippedCount++;
+                    state.sources[source.key] = { ...nextMeta, nextDueAt: nowIso };
+                    continue;
+                }
+                budgetUsed += deferredCost;
             }
 
             let data = await res.json();
