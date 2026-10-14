@@ -449,6 +449,37 @@ async function handleGetAll(env) {
     });
 }
 
+//? GET /v1/private
+// Authorized full dump: the same active-source keys as /v1/store, including
+// private repository records. Kept separate from handleGetAll so the public
+// route's filtering and cache headers cannot be affected by this one.
+async function handleGetPrivate(env, request) {
+    if (!env.REFRESH_TOKEN && !env.DATA_TOKEN) return authFailure('REFRESH_TOKEN');
+    if (!hasPrivateDataAccess(request, env)) {
+        return jsonResponse({ error: 'Private data requires authorization' }, 401, {
+            'Cache-Control': 'private, no-store',
+        });
+    }
+
+    const keys = await env.echopoint_kv.list();
+    const activeKeys = activeSourceKeys();
+    const result = {};
+    await Promise.all(
+        keys.keys
+            .filter((key) => activeKeys.has(key.name))
+            .map(async ({ name }) => {
+                result[name] = await cachedKvGet(env.echopoint_kv, name, 'json');
+            })
+    );
+
+    const lastUpdated = await env.echopoint_kv.get('_meta:last_updated');
+    const lastRun = await env.echopoint_kv.get('_meta:last_run', 'json');
+    if (lastUpdated) result['_meta:last_updated'] = lastUpdated;
+    if (lastRun) result['_meta:last_run'] = lastRun;
+
+    return jsonResponse(result, 200, { 'Cache-Control': 'private, no-store' });
+}
+
 //? GET /v1/store/:key
 async function handleGetKey(key, env, request) {
     if (!activeSourceKeys().has(key) && !PUBLIC_META_KEYS.has(key)) {
@@ -639,6 +670,10 @@ async function handleFetch(request, env, ctx) {
 
     if (path === '/v1/store') {
         return handleGetAll(env);
+    }
+
+    if (path === '/v1/private') {
+        return handleGetPrivate(env, request);
     }
 
     if (path === '/v1/refresh') {

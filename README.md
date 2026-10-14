@@ -79,7 +79,7 @@ Private repository language totals are discovered through GitHub GraphQL and mer
 { alias: "internal-tool", owner: "ujjwalvivek", name: "internal-tool", tracked: true, private: true }
 ```
 
-The public config hides the owner/name for entries marked private. Raw private keys, private repo SVGs, and the contents proxy require an authorization token.
+The public config hides the owner/name for entries marked private. Raw private keys, private repo SVGs, and the contents proxy require an authorization token. `GET /v1/private` returns the same dump as `/v1/store` with private repository records included; it requires `Authorization: Bearer <REFRESH_TOKEN or DATA_TOKEN>` and responds with `Cache-Control: private, no-store`.
 
 ### Package registry sources
 

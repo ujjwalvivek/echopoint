@@ -452,3 +452,47 @@ test('unchanged weighted sources only spend one fetch of budget', async () => {
         globalThis.fetch = originalFetch;
     }
 });
+
+test('private store requires the token and includes private records', async () => {
+    const kv = new MemoryKV({
+        'github:portfolio:repo': JSON.stringify({ private: true, name: 'portfolio' }),
+        'github:portfolio:langs': JSON.stringify({ Rust: 100 }),
+        'github:journey:repo': JSON.stringify({ private: false, name: 'journey' }),
+        'github:private:ujjwalvivek:langs': JSON.stringify({ languages: { Rust: 25 } }),
+        '_meta:source_state': JSON.stringify({ sources: {} }),
+        '_meta:last_updated': '2026-10-15T00:00:00.000Z',
+    });
+    const workerEnv = env(kv);
+    const get = (headers = {}) => Worker.fetch(
+        new Request('https://example.test/v1/private', { headers }),
+        workerEnv,
+        {},
+    );
+
+    for (const headers of [{}, { Authorization: 'Bearer wrong' }]) {
+        const denied = await get(headers);
+        assert.equal(denied.status, 401);
+        assert.equal(denied.headers.get('Cache-Control'), 'private, no-store');
+        assert.equal((await denied.json())['github:portfolio:repo'], undefined);
+    }
+
+    const allowed = await get({ Authorization: 'Bearer refresh-token' });
+    const store = await allowed.json();
+    assert.equal(allowed.status, 200);
+    assert.equal(allowed.headers.get('Cache-Control'), 'private, no-store');
+    assert.equal(store['github:portfolio:repo'].private, true);
+    assert.deepEqual(store['github:portfolio:langs'], { Rust: 100 });
+    assert.equal(store['github:journey:repo'].name, 'journey');
+    assert.ok(store['github:private:ujjwalvivek:langs']);
+    assert.equal(store['_meta:last_updated'], '2026-10-15T00:00:00.000Z');
+    assert.equal(store['_meta:source_state'], undefined, 'internal state stays hidden');
+
+    const publicStore = await (await Worker.fetch(new Request('https://example.test/v1/store'), workerEnv, {})).json();
+    assert.equal(publicStore['github:portfolio:repo'], undefined, 'public dump is unchanged');
+});
+
+test('private store is unavailable when no token is configured', async () => {
+    const workerEnv = env(new MemoryKV(), { REFRESH_TOKEN: undefined });
+    const response = await Worker.fetch(new Request('https://example.test/v1/private'), workerEnv, {});
+    assert.equal(response.status, 503);
+});

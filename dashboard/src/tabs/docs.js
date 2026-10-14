@@ -271,6 +271,7 @@ export function initDocsData(ICONS) {
                             <tr><td><code>/v1/config</code></td><td>GET</td><td>Public config: owner, repos, packages, refresh settings.</td></tr>
                             <tr><td><code>/v1/store</code></td><td>GET</td><td>Public/sanitized active-source dump; private repository records are omitted.</td></tr>
                             <tr><td><code>/v1/store/:key</code></td><td>GET</td><td>Direct active-source read; private repository keys require <code>Authorization</code>.</td></tr>
+                            <tr><td><code>/v1/private</code></td><td>GET</td><td>Full active-source dump including private repository records; requires <code>Authorization</code>, never cached.</td></tr>
                             <tr><td><code>/v1/status</code></td><td>GET</td><td>All configured status snapshots.</td></tr>
                             <tr><td><code>/v1/status/:alias</code></td><td>GET</td><td>One configured status snapshot.</td></tr>
                             <tr><td><code>/v1/langs</code></td><td>GET</td><td>Raw public language aggregate, including sanitized private totals; a private <code>?repo=</code> requires auth.</td></tr>
