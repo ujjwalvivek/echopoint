@@ -373,7 +373,7 @@ export const CONFIG = {
     // The raw language totals and the original /svg/langs route do not use
     // these values.
     languageDisplay: {
-        primary: ["Rust", "TypeScript", "JavaScript", "Go"],
+        primary: ["Rust"],
         // HTML and CSS intentionally stay in the Languages section.
         // These are GitHub Linguist keys that belong in Frameworks when they
         // appear in the collected language data.
