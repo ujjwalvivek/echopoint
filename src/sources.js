@@ -46,7 +46,7 @@ function githubRepoSources(repoConfig) {
 
     return [
         scheduled({ key: `${prefix}:repo`, url: gh(base), auth: 'github' }, 75, REFRESH.repository),
-        scheduled({ key: `${prefix}:release`, url: gh(`${base}/releases/latest`), auth: 'github' }, 55, REFRESH.release),
+        scheduled({ key: `${prefix}:release`, url: gh(`${base}/releases/latest`), auth: 'github', absentOk: true }, 55, REFRESH.release),
         scheduled({ key: `${prefix}:releases`, url: gh(`${base}/releases?per_page=5`), auth: 'github' }, 45, REFRESH.releases),
         scheduled({
             key: `${prefix}:commits`, url: gh(`${base}/commits?per_page=5`), auth: 'github',
@@ -211,6 +211,20 @@ export function githubHeaders(env) {
     return headers;
 }
 
+// The full registry document lists every version; keep only the dates so the
+// cached value stays small.
+export function normalizeNpmTime(data) {
+    const time = data?.time || {};
+    const latest = data?.['dist-tags']?.latest || null;
+    return {
+        latest,
+        published_at: (latest && time[latest]) || null,
+        created_at: time.created || null,
+        modified_at: time.modified || null,
+        versions: Object.keys(data?.versions || {}).length,
+    };
+}
+
 export function normalizePyPiData(data, fallbackName = null) {
     const info = data?.info || {};
     return {
@@ -240,6 +254,19 @@ export const SOURCES = [
         key: `npm:${pkg.alias}`,
         url: `https://registry.npmjs.org/${pkg.package}/latest`,
     }, 50, REFRESH.package)),
+    //? npm /latest has no publish dates or download counts; these fill them in.
+    ...CONFIG.npm.map((pkg) => scheduled({
+        key: `npm:${pkg.alias}:time`,
+        url: `https://registry.npmjs.org/${pkg.package}`,
+        transform: (data) => normalizeNpmTime(data),
+        validate: (data) => Boolean(data?.time),
+    }, 45, REFRESH.package)),
+    ...CONFIG.npm.map((pkg) => scheduled({
+        key: `npm:${pkg.alias}:downloads`,
+        url: `https://api.npmjs.org/downloads/point/last-month/${pkg.package}`,
+        transform: (data) => ({ downloads: Number(data?.downloads || 0), start: data?.start || null, end: data?.end || null }),
+        validate: (data) => Number.isFinite(Number(data?.downloads)),
+    }, 45, REFRESH.package)),
 
     //? crates.io
     ...CONFIG.crates.map((crate) => scheduled({

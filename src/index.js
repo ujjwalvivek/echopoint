@@ -1211,6 +1211,28 @@ async function handleScheduled(env, options = {}) {
                 continue;
             }
 
+            if (res.status === 404 && source.absentOk) {
+                // e.g. /releases/latest on a repo with no releases: that is an
+                // answer, not an error. Schedule it normally instead of retrying
+                // in 15 minutes, and clear a value that no longer exists.
+                const previous = await kv.get(source.key, 'json');
+                if (previous !== null) {
+                    await kv.put(source.key, 'null');
+                    changedCount++;
+                }
+                nextMeta = {
+                    ...nextMeta,
+                    etag: null,
+                    lastModified: null,
+                    lastSuccessAt: nowIso,
+                    lastError: null,
+                    nextDueAt: nextDueAt(source, now),
+                };
+                successCount++;
+                state.sources[source.key] = nextMeta;
+                continue;
+            }
+
             if (!res.ok) {
                 const retryAfter = Number(res.headers.get('Retry-After'));
                 const retrySeconds = Number.isFinite(retryAfter) && retryAfter > 0

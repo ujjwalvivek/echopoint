@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import Worker from '../src/index.js';
-import { normalizePyPiData, SOURCES } from '../src/sources.js';
+import { normalizeNpmTime, normalizePyPiData, SOURCES } from '../src/sources.js';
 
 class MemoryKV {
     constructor(entries = {}) {
@@ -495,4 +495,54 @@ test('private store is unavailable when no token is configured', async () => {
     const workerEnv = env(new MemoryKV(), { REFRESH_TOKEN: undefined });
     const response = await Worker.fetch(new Request('https://example.test/v1/private'), workerEnv, {});
     assert.equal(response.status, 503);
+});
+
+test('a repo without releases is scheduled normally, not retried as a failure', async () => {
+    const kv = new MemoryKV({ 'github:portfolio:release': JSON.stringify({ tag_name: 'v0.1.0' }) });
+    const workerEnv = env(kv);
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (url) => {
+        if (String(url).endsWith('/releases/latest')) return new Response('{"message":"Not Found"}', { status: 404 });
+        return new Response(JSON.stringify([]), { status: 200 });
+    };
+
+    try {
+        const response = await Worker.fetch(
+            new Request('https://example.test/v1/refresh?scope=repo&repo=portfolio', {
+                method: 'POST',
+                headers: { Authorization: 'Bearer refresh-token' },
+            }),
+            workerEnv,
+            {},
+        );
+        const result = await response.json();
+        assert.equal(result.failed, 0);
+        assert.deepEqual(result.failures, []);
+        assert.equal(await kv.get('github:portfolio:release', 'json'), null, 'a deleted release is cleared');
+
+        const state = await kv.get('_meta:source_state', 'json');
+        const meta = state.sources['github:portfolio:release'];
+        assert.equal(meta.lastError, null);
+        const hoursUntilDue = (Date.parse(meta.nextDueAt) - Date.now()) / 3_600_000;
+        assert.ok(hoursUntilDue > 11, `next check in ${hoursUntilDue.toFixed(1)}h, not the 15 minute retry`);
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
+test('npm time source keeps only publish dates and a version count', () => {
+    assert.deepEqual(normalizeNpmTime({
+        'dist-tags': { latest: '1.3.0' },
+        time: { created: '2025-01-01T00:00:00Z', modified: '2026-05-01T00:00:00Z', '1.3.0': '2026-04-30T00:00:00Z' },
+        versions: { '1.2.0': {}, '1.3.0': {} },
+    }), {
+        latest: '1.3.0',
+        published_at: '2026-04-30T00:00:00Z',
+        created_at: '2025-01-01T00:00:00Z',
+        modified_at: '2026-05-01T00:00:00Z',
+        versions: 2,
+    });
+    const npmKeys = SOURCES.map((source) => source.key).filter((key) => key.startsWith('npm:'));
+    assert.ok(npmKeys.some((key) => key.endsWith(':downloads')));
+    assert.ok(npmKeys.some((key) => key.endsWith(':time')));
 });
