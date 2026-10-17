@@ -1,4 +1,5 @@
-import { generateBadge } from './svg/badges.js';
+import { generateBadge as generateFullBadge } from './svg/badges.js';
+import { generateRootBadge } from './svg/badges-root.js';
 import { generateCalendar } from './svg/calendar.js';
 import { generateStreakBadge } from './svg/streak.js';
 import { generateLangsBar } from './svg/langs.js';
@@ -750,7 +751,12 @@ async function handleFetch(request, env, ctx) {
 
     //? Router for SVG rendering
     if (path.startsWith('/svg/')) {
-        const route = path.slice('/svg/'.length);
+        const rawRoute = path.slice('/svg/'.length);
+        //? /svg/root/<kind> serves the same badges as /svg/badges/<kind> with a lean font payload (used by root.ujjwalvivek.com).
+        const rootBadges = rawRoute.startsWith('root/');
+        const rootKind = rootBadges ? rawRoute.slice('root/'.length) : null;
+        const route = rootBadges ? (rootKind === 'status' ? 'status' : `badges/${rootKind}`) : rawRoute;
+        const generateBadge = rootBadges ? generateRootBadge : generateFullBadge;
         const opts = parseParams(url);
         const badgeRoute = route.startsWith('badges/') ? route.slice('badges/'.length) : null;
         const badgeOpts = withDefaultBadgeLogo(opts, badgeRoute);
