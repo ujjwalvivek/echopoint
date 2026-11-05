@@ -378,6 +378,26 @@ export const CONFIG = {
                 tracked: true,
                 private: true,
             },
+            {
+                alias: "devlogs.marchy",
+                owner: "ujjwalvivek",
+                name: "devlogs.marchy",
+                tracked: true,
+                private: true,
+            },
+            {
+                alias: "nib",
+                owner: "ujjwalvivek",
+                name: "nib",
+                tracked: true,
+                private: true,
+            },
+            {
+                alias: "helide-rs",
+                owner: "ujjwalvivek",
+                name: "helide-rs",
+                tracked: true,
+            },
         ],
     },
     npm: [
