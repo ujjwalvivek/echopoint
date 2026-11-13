@@ -398,6 +398,12 @@ export const CONFIG = {
                 name: "helide-rs",
                 tracked: true,
             },
+            {
+                alias: "mibi",
+                owner: "ujjwalvivek",
+                name: "mibi",
+                tracked: true,
+            },
         ],
     },
     npm: [
