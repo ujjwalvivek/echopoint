@@ -81,6 +81,8 @@ Private repository language totals are discovered through GitHub GraphQL and mer
 
 The public config hides the owner/name for entries marked private. Raw private keys, private repo SVGs, and the contents proxy require an authorization token. `GET /v1/private` returns the same dump as `/v1/store` with private repository records included; it requires `Authorization: Bearer <REFRESH_TOKEN or DATA_TOKEN>` and responds with `Cache-Control: private, no-store`.
 
+Repos marked `browse: true` (only portfolio) also get a `github:<alias>:tree` key with the whole file list, refreshed by push webhooks, and `GET /v1/github/blob?repo=<alias>&sha=<sha>` serves a public blob listed in that tree through the GitHub token, cached at the edge for a year. The site's GitHub navigator uses both.
+
 ### Package registry sources
 
 Registry entries are configured in `src/config.js`. PyPI projects use the project name from PyPI and are cached under `pypi:{alias}`:

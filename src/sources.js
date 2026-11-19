@@ -22,6 +22,8 @@ const REFRESH = {
     tags: 7 * DAY,
     deployments: 12 * HOUR,
     languages: 12 * HOUR,
+    // Push webhooks refresh the tree immediately; polling is only a fallback.
+    tree: DAY,
     user: 7 * DAY,
     package: DAY,
     crate: DAY,
@@ -61,7 +63,25 @@ function githubRepoSources(repoConfig) {
         scheduled({ key: `${prefix}:tags`, url: gh(`${base}/tags?per_page=5`), auth: 'github' }, 15, REFRESH.tags),
         scheduled({ key: `${prefix}:deployments`, url: gh(`${base}/deployments?per_page=5`), auth: 'github' }, 35, REFRESH.deployments),
         scheduled({ key: `${prefix}:langs`, url: gh(`${base}/languages`), auth: 'github' }, 90, REFRESH.languages),
+        ...(repoConfig.browse && !isPrivateGitHubRepo(repoConfig) ? [scheduled({
+            key: `${prefix}:tree`, url: gh(`${base}/git/trees/HEAD?recursive=1`), auth: 'github',
+            transform: compactTree,
+        }, 60, REFRESH.tree)] : []),
     ];
+}
+
+// The whole file list in one key: [path, kind (0 file, 1 dir, 2 submodule), size, blob sha].
+export function compactTree(data) {
+    return {
+        sha: data?.sha || null,
+        truncated: Boolean(data?.truncated),
+        items: (Array.isArray(data?.tree) ? data.tree : []).map((node) => [
+            node.path,
+            node.type === 'tree' ? 1 : node.type === 'commit' ? 2 : 0,
+            Number(node.size || 0),
+            node.type === 'blob' ? node.sha : null,
+        ]),
+    };
 }
 
 function commitCountFromResponse(commits, res) {

@@ -330,7 +330,7 @@ function isPrivateKey(key, aliases) {
     for (const alias of aliases) {
         if (!keyForRepoAlias(key, alias)) continue;
         const suffix = key.slice(`github:${alias}:`.length);
-        if (['repo', 'release', 'releases', 'commits', 'commit_count', 'contributors', 'tags', 'deployments', 'langs'].includes(suffix)) {
+        if (['repo', 'release', 'releases', 'commits', 'commit_count', 'contributors', 'tags', 'deployments', 'langs', 'tree'].includes(suffix)) {
             return true;
         }
     }
@@ -495,7 +495,7 @@ async function handleGetKey(key, env, request) {
     const aliases = privateRepoAliases();
     const repoMatch = key.match(/^github:([^:]+):repo$/);
     if (repoMatch && val?.private === true) aliases.add(repoMatch[1]);
-    const sourceMatch = key.match(/^github:([^:]+):(repo|release|releases|commits|commit_count|contributors|tags|deployments|langs)$/);
+    const sourceMatch = key.match(/^github:([^:]+):(repo|release|releases|commits|commit_count|contributors|tags|deployments|langs|tree)$/);
     if (sourceMatch && !aliases.has(sourceMatch[1])) {
         const repoData = await env.echopoint_kv.get(`github:${sourceMatch[1]}:repo`, 'json');
         if (repoData?.private === true) aliases.add(sourceMatch[1]);
@@ -598,7 +598,7 @@ function webhookRefreshKeys(eventName, repository) {
 
     const prefix = `github:${repo.alias}:`;
     const relevantSuffixes = eventName === 'push'
-        ? ['repo', 'commits', 'commit_count', 'langs']
+        ? ['repo', 'commits', 'commit_count', 'langs', 'tree']
         : eventName === 'release'
             ? ['repo', 'release', 'releases']
             : ['repo'];
@@ -640,6 +640,56 @@ async function handleGitHubWebhook(request, env, ctx) {
         event: eventName,
         keys,
     });
+}
+
+//? GET /v1/github/blob?repo=<alias>&sha=<blob sha>
+const MAX_BLOB_BYTES = 5 * 1024 * 1024;
+
+async function handleGitHubBlob(url, env, ctx, request) {
+    const repo = resolveRequiredRepo(url.searchParams.get('repo'));
+    const sha = (url.searchParams.get('sha') || '').toLowerCase();
+    if (!repo || !repo.browse || isPrivateGitHubRepo(repo)) {
+        return jsonResponse({ error: 'Repository is not browsable' }, 404);
+    }
+    if (!/^[0-9a-f]{40}$/.test(sha)) return jsonResponse({ error: 'Invalid sha' }, 400);
+
+    const cache = globalThis.caches?.default;
+    const cacheKey = new Request(`https://echopoint.cache/v1/github/blob/${repo.alias}/${sha}`);
+    const hit = cache ? await cache.match(cacheKey) : null;
+    if (hit) return hit;
+
+    const record = await cachedKvGet(env.echopoint_kv, `github:${repo.alias}:repo`, 'json');
+    if (record?.private === true) return jsonResponse({ error: 'Repository is not browsable' }, 404);
+    const tree = await cachedKvGet(env.echopoint_kv, `github:${repo.alias}:tree`, 'json');
+    const item = Array.isArray(tree?.items) ? tree.items.find((entry) => entry[3] === sha) : null;
+    if (!item) return jsonResponse({ error: 'Blob not in the stored tree' }, 404);
+    if (Number(item[2]) > MAX_BLOB_BYTES) return jsonResponse({ error: 'Blob too large' }, 413);
+
+    let upstream;
+    try {
+        upstream = await fetch(`https://api.github.com/repos/${repo.owner}/${repo.name}/git/blobs/${sha}`, {
+            headers: { ...githubHeaders(env), Accept: 'application/vnd.github.raw+json' },
+        });
+    } catch (err) {
+        return jsonResponse({ error: 'GitHub API proxy failed', message: err.message }, 502);
+    }
+    if (!upstream.ok) return jsonResponse({ error: 'GitHub answered', status: upstream.status }, upstream.status === 404 ? 404 : 502);
+
+    const response = new Response(upstream.body, {
+        status: 200,
+        headers: {
+            'Content-Type': 'application/octet-stream',
+            'Cache-Control': 'public, max-age=31536000, immutable',
+            'X-Content-Type-Options': 'nosniff',
+            ...CORS,
+        },
+    });
+    if (cache) {
+        const put = cache.put(cacheKey, response.clone());
+        if (ctx?.waitUntil) ctx.waitUntil(put);
+        else await put;
+    }
+    return response;
 }
 
 //? Main fetch handler (router)
@@ -1014,6 +1064,13 @@ async function handleFetch(request, env, ctx) {
     if (path === '/v1/github/webhook') {
         if (request.method !== 'POST') return jsonResponse({ error: 'Method not allowed' }, 405);
         return handleGitHubWebhook(request, env, ctx);
+    }
+
+    //? Public blobs of a browsable repo, for the site's GitHub navigator. Only shas listed in the stored tree are
+    //? fetched, so a visitor cannot spend the token on arbitrary requests; a blob never changes, so it is cached at
+    //? the edge and in the browser for a year and each one costs at most one GitHub call per data centre.
+    if (path === '/v1/github/blob') {
+        return handleGitHubBlob(url, env, ctx, request);
     }
 
     //? Authenticated proxy for GitHub Contents API

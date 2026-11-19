@@ -546,3 +546,50 @@ test('npm time source keeps only publish dates and a version count', () => {
     assert.ok(npmKeys.some((key) => key.endsWith(':downloads')));
     assert.ok(npmKeys.some((key) => key.endsWith(':time')));
 });
+
+test('browsable repo serves its tree from the store and only listed blobs', async () => {
+    const source = SOURCES.find((s) => s.key === 'github:portfolio:tree');
+    assert.ok(source, 'portfolio has a tree source');
+    assert.equal(SOURCES.some((s) => s.key === 'github:journey:tree'), false);
+    const blobSha = 'a'.repeat(40);
+    const tree = await source.transform({
+        sha: 't'.repeat(40),
+        truncated: false,
+        tree: [
+            { path: 'src', type: 'tree', sha: 'b'.repeat(40) },
+            { path: 'src/a.js', type: 'blob', size: 5, sha: blobSha },
+        ],
+    });
+    assert.deepEqual(tree.items, [['src', 1, 0, null], ['src/a.js', 0, 5, blobSha]]);
+
+    const kv = new MemoryKV({ 'github:portfolio:tree': JSON.stringify(tree) });
+    const workerEnv = env(kv);
+    const stored = await Worker.fetch(new Request('https://example.test/v1/store/github:portfolio:tree'), workerEnv, {});
+    assert.equal(stored.status, 200);
+
+    const originalFetch = globalThis.fetch;
+    const calls = [];
+    globalThis.fetch = async (url, options) => {
+        calls.push(String(url));
+        assert.equal(options.headers.Authorization, 'Bearer github-token');
+        assert.equal(options.headers.Accept, 'application/vnd.github.raw+json');
+        return new Response('hello');
+    };
+    try {
+        const ok = await Worker.fetch(new Request(`https://example.test/v1/github/blob?repo=portfolio&sha=${blobSha}`), workerEnv, {});
+        assert.equal(ok.status, 200);
+        assert.equal(await ok.text(), 'hello');
+        assert.match(ok.headers.get('Cache-Control'), /immutable/);
+        assert.equal(ok.headers.get('Access-Control-Allow-Origin'), '*');
+
+        const unknown = await Worker.fetch(new Request(`https://example.test/v1/github/blob?repo=portfolio&sha=${'c'.repeat(40)}`), workerEnv, {});
+        assert.equal(unknown.status, 404);
+        const other = await Worker.fetch(new Request(`https://example.test/v1/github/blob?repo=journey&sha=${blobSha}`), workerEnv, {});
+        assert.equal(other.status, 404);
+        const bad = await Worker.fetch(new Request('https://example.test/v1/github/blob?repo=portfolio&sha=nope'), workerEnv, {});
+        assert.equal(bad.status, 400);
+        assert.equal(calls.length, 1);
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});

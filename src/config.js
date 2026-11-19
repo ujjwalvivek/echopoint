@@ -9,6 +9,8 @@ export const CONFIG = {
                 owner: "ujjwalvivek",
                 name: "portfolio",
                 tracked: true,
+                // The site's GitHub navigator reads this repo's file tree and blobs through echopoint.
+                browse: true,
             },
             {
                 alias: "journey",
